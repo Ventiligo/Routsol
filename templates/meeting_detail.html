@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}{{ meeting.title }} | Routsol Web{% endblock %}
+
+{% block head_extra %}
+<style>
+.page-narrow { max-width: 580px; margin: 0 auto; }
+.meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    color: var(--text-muted);
+    font-size: 0.86rem;
+    margin-top: 6px;
+}
+.participant-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--bg-input);
+    border-radius: var(--radius-sm);
+}
+.participant-name {
+    font-weight: 500;
+    color: var(--text);
+    font-size: 0.9rem;
+}
+.description-box {
+    background: var(--bg-input);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    margin-bottom: 20px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+.rsvp-box {
+    text-align: center;
+    padding-top: 4px;
+}
+.rsvp-box p {
+    color: var(--text-secondary);
+    margin-bottom: 14px;
+    font-size: 0.92rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-narrow">
+    <div style="margin-bottom:16px;">
+        <a href="{{ url_for('calendar') }}" class="btn btn-outline btn-sm">
+            <i class="fas fa-arrow-left"></i> Назад к календарю
+        </a>
+    </div>
+    <div class="card">
+        <div style="display:flex; align-items:flex-start; gap:14px; margin-bottom:20px;">
+            <div class="meeting-date-badge" style="min-width:56px;">
+                <div class="day">{{ meeting.scheduled_at.strftime('%d') }}</div>
+                <div class="month">{{ meeting.scheduled_at.strftime('%b %Y') }}</div>
+            </div>
+            <div style="flex:1; min-width:0;">
+                <h2 style="font-size:1.2rem; font-weight:700; color:var(--text); margin-bottom:4px;">
+                    {% if meeting.activity_icon %}<i class="fas {{ meeting.activity_icon }} text-primary"></i>{% endif %}
+                    {{ meeting.title }}
+                </h2>
+                <div class="meta-row">
+                    <span><i class="fas fa-clock"></i> {{ meeting.scheduled_at.strftime('%H:%M') }}</span>
+                    {% if meeting.location %}
+                    <span><i class="fas fa-map-marker-alt"></i> {{ meeting.location }}</span>
+                    {% endif %}
+                    <span><i class="fas fa-user"></i> {{ meeting.organizer.username }}</span>
+                </div>
+                <div style="margin-top:8px;">
+                    {% if meeting.status == 'planned' %}<span class="badge badge-primary">Запланировано</span>
+                    {% elif meeting.status == 'done' %}<span class="badge badge-accepted">Прошло</span>
+                    {% elif meeting.status == 'cancelled' %}<span class="badge badge-declined">Отменено</span>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% if meeting.description %}
+        <div class="description-box">{{ meeting.description }}</div>
+        {% endif %}
+
+        <div class="section-title"><i class="fas fa-users"></i> Участники</div>
+        <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:20px;">
+            <div class="participant-row">
+                <div class="avatar avatar-sm">{{ meeting.organizer.username[0].upper() }}</div>
+                <span class="participant-name">{{ meeting.organizer.username }}</span>
+                <span class="badge badge-primary" style="margin-left:auto;">Организатор</span>
+            </div>
+            {% for p in participants %}
+            <div class="participant-row">
+                <div class="avatar avatar-sm">{{ p.user.username[0].upper() }}</div>
+                <span class="participant-name">{{ p.user.username }}</span>
+                <span class="badge {% if p.status == 'accepted' %}badge-accepted{% elif p.status == 'declined' %}badge-declined{% else %}badge-pending{% endif %}" style="margin-left:auto;">
+                    {% if p.status == 'accepted' %}Придёт{% elif p.status == 'declined' %}Не придёт{% else %}Ожидает{% endif %}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if my_participation and my_participation.status == 'invited' %}
+        <hr class="divider">
+        <div class="rsvp-box">
+            <p>Вас пригласили на эту встречу. Вы придёте?</p>
+            <form method="post" action="{{ url_for('respond_meeting', meeting_id=meeting.id) }}" style="display:inline-flex; gap:10px; flex-wrap:wrap; justify-content:center;">
+                {{ csrf_token() }}
+                <button type="submit" name="action" value="accept" class="btn btn-success">
+                    <i class="fas fa-check"></i> Приду
+                </button>
+                <button type="submit" name="action" value="decline" class="btn btn-outline">
+                    <i class="fas fa-times"></i> Не смогу
+                </button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

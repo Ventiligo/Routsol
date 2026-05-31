@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Новая встреча | Routsol Web{% endblock %}
+
+{% block head_extra %}
+<style>
+.act-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 20px;
+    border: 1.5px solid var(--border);
+    font-size: 0.84rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: var(--bg-card);
+    transition: all 0.18s;
+    cursor: pointer;
+    user-select: none;
+}
+.act-chip:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: var(--primary-light);
+}
+.act-chip.selected {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+.friend-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.friend-row:hover { background: var(--bg-input); }
+.page-narrow { max-width: 540px; margin: 0 auto; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-narrow">
+    <div style="margin-bottom:16px;">
+        <a href="{{ url_for('calendar') }}" class="btn btn-outline btn-sm">
+            <i class="fas fa-arrow-left"></i> Назад к календарю
+        </a>
+    </div>
+    <div class="card">
+        <h2 style="font-size:1.2rem; font-weight:700; margin-bottom:20px; color:var(--text);">
+            <i class="fas fa-calendar-plus text-primary"></i> Новая встреча
+        </h2>
+        <form method="post" action="{{ url_for('new_meeting') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label class="form-label">Название *</label>
+                <input type="text" name="title" class="form-control" required
+                       value="{{ prefill.title }}" placeholder="Например: Поход в кино">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Описание</label>
+                <textarea name="description" class="form-control" placeholder="Подробности встречи..."></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Место</label>
+                <input type="text" name="location" class="form-control" placeholder="Адрес или название места">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Дата и время *</label>
+                <input type="datetime-local" name="scheduled_at" class="form-control" required id="dtInput">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Тип активности</label>
+                <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                    {% set activities = [
+                        ('Кафе',   'fa-coffee',   'cafe'),
+                        ('Кино',   'fa-film',     'cinema'),
+                        ('Парк',   'fa-tree',     'park'),
+                        ('Спорт',  'fa-dumbbell', 'gym'),
+                        ('Музей',  'fa-landmark', 'museum'),
+                        ('Игры',   'fa-gamepad',  'games'),
+                        ('Другое', 'fa-star',     'other')
+                    ] %}
+                    {% for label, icon, val in activities %}
+                    <label>
+                        <input type="radio" name="activity_type" value="{{ val }}"
+                               {% if prefill.activity_type == val %}checked{% endif %}
+                               style="display:none;" class="act-radio">
+                        <span class="act-chip {% if prefill.activity_type == val %}selected{% endif %}" data-val="{{ val }}">
+                            <i class="fas {{ icon }}"></i> {{ label }}
+                        </span>
+                    </label>
+                    {% endfor %}
+                </div>
+                <input type="hidden" name="activity_icon" id="activityIcon" value="{{ prefill.activity_icon or 'fa-star' }}">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Пригласить друзей</label>
+                {% if friends %}
+                <div style="max-height:200px; overflow-y:auto; border:1px solid var(--border); border-radius:var(--radius-sm); padding:4px;">
+                    {% for f in friends %}
+                    <label class="friend-row">
+                        <input type="checkbox" name="participants" value="{{ f.id }}"
+                               {% if prefill.friend_id == f.id|string %}checked{% endif %}
+                               style="width:15px; height:15px; accent-color:var(--primary); flex-shrink:0;">
+                        <div class="avatar avatar-sm">{{ f.username[0].upper() }}</div>
+                        <span style="font-weight:500; color:var(--text); font-size:0.9rem;">{{ f.username }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div style="color:var(--text-muted); font-size:0.86rem; padding:12px; background:var(--bg-input); border-radius:var(--radius-sm);">
+                    <i class="fas fa-info-circle"></i> Сначала <a href="{{ url_for('social_users') }}">добавьте друзей</a>
+                </div>
+                {% endif %}
+            </div>
+            <button type="submit" class="btn btn-primary btn-block" style="margin-top:4px; padding:12px;">
+                <i class="fas fa-calendar-check"></i> Создать встречу
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const dt = document.getElementById('dtInput');
+const now = new Date();
+now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+dt.min = now.toISOString().slice(0, 16);
+
+const iconMap = { cafe:'fa-coffee', cinema:'fa-film', park:'fa-tree', gym:'fa-dumbbell', museum:'fa-landmark', games:'fa-gamepad', other:'fa-star' };
+
+document.querySelectorAll('.act-chip').forEach(chip => {
+    chip.addEventListener('click', function () {
+        document.querySelectorAll('.act-chip').forEach(c => c.classList.remove('selected'));
+        this.classList.add('selected');
+        const val = this.dataset.val;
+        document.getElementById('activityIcon').value = iconMap[val] || 'fa-star';
+    });
+});
+</script>
+{% endblock %}

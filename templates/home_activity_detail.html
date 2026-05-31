@@ -1,0 +1,442 @@
+{% extends "base.html" %}
+{% block title %}{{ activity.title }} | Routsol Web{% endblock %}
+
+{% from '_macros.html' import activity_icon, fatigue_icon, mood_icon %}
+{% block head_extra %}
+<style>
+.detail-container { max-width: 780px; margin: 0 auto; }
+
+.back-link {
+    display: inline-flex; align-items: center; gap: 7px;
+    color: var(--primary); text-decoration: none; font-weight: 500;
+    margin-bottom: 16px; font-size: 0.9rem; transition: opacity 0.18s;
+}
+.back-link:hover { opacity: 0.75; }
+
+.ha-hero {
+    display: flex; align-items: flex-start; gap: 16px;
+    margin-bottom: 20px; padding-bottom: 20px;
+    border-bottom: 1px solid var(--border); flex-wrap: wrap;
+}
+.ha-hero-icon { font-size: 3.5rem; flex-shrink: 0; }
+.ha-hero-info { flex: 1; min-width: 0; }
+.ha-hero-info h1 { margin: 0 0 6px; color: var(--text); font-size: 1.4rem; font-weight: 800; }
+.ha-hero-desc { color: var(--text-secondary); margin: 0 0 12px; font-size: 0.95rem; line-height: 1.5; }
+.ha-score-row { display: flex; align-items: center; gap: 10px; }
+.score-pill {
+    background: var(--gradient);
+    color: #fff; font-weight: 700; font-size: 0.95rem;
+    padding: 5px 14px; border-radius: 20px;
+}
+.score-label { color: var(--text-muted); font-size: 0.86rem; }
+
+.ha-section { margin-bottom: 24px; }
+.ha-section h2 {
+    color: var(--text); margin-bottom: 12px; font-size: 1rem; font-weight: 700;
+    display: flex; align-items: center; gap: 7px;
+}
+.ha-section h2 i { color: var(--primary); }
+
+.why-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.why-item {
+    display: flex; align-items: center; gap: 7px;
+    background: var(--primary-light); color: var(--primary);
+    padding: 7px 13px; border-radius: 20px;
+    font-size: 0.86rem; font-weight: 500;
+}
+.why-item i { font-size: 0.8rem; }
+
+.tips-list { display: flex; flex-direction: column; gap: 10px; }
+.tip-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    background: var(--bg-input); border-radius: var(--radius-sm); padding: 13px;
+}
+.tip-num {
+    background: var(--gradient); color: #fff; font-weight: 700; font-size: 0.82rem;
+    width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.tip-item p { margin: 0; color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5; padding-top: 2px; }
+
+.others-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.other-card {
+    display: flex; align-items: center; gap: 10px; padding: 11px;
+    background: var(--bg-input); border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm); text-decoration: none; color: inherit; transition: all 0.18s;
+}
+.other-card:hover { border-color: var(--primary); background: var(--primary-light); }
+.other-icon { font-size: 1.6rem; flex-shrink: 0; }
+.other-info { display: flex; flex-direction: column; min-width: 0; }
+.other-info strong { font-size: 0.86rem; color: var(--text); }
+.other-info span { font-size: 0.76rem; color: var(--primary); font-weight: 600; }
+
+.detail-actions { display: flex; gap: 12px; margin-top: 24px; justify-content: center; flex-wrap: wrap; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="detail-container">
+    <a href="{{ url_for('recommendations') }}" class="back-link">
+        <i class="fas fa-arrow-left"></i> Назад к рекомендациям
+    </a>
+
+    <div class="card">
+        <div class="ha-hero">
+            <div class="ha-hero-icon">{{ activity_icon(activity.id, 'pi-lg') }}</div>
+            <div class="ha-hero-info">
+                <h1>{{ activity.title }}</h1>
+                <p class="ha-hero-desc">{{ activity.description }}</p>
+                <div class="ha-score-row">
+                    <span class="score-pill">{{ activity.score|round|int }}%</span>
+                    <span class="score-label">совпадение с вашим состоянием</span>
+                </div>
+            </div>
+            
+            <!-- Кнопки лайков для домашней активности -->
+            <div class="detail-likes" id="like-section-{{ activity.id }}" data-object-type="home_activity">
+                <div class="like-buttons">
+                    <button class="like-btn like-btn-up" 
+                            id="like-btn-{{ activity.id }}"
+                            title="Нравится"
+                            data-reaction="like"
+                            data-activity-id="{{ activity.id }}"
+                            data-activity-name="{{ activity.title }}"
+                            data-activity-type="home_activity">
+                        <i class="fas fa-thumbs-up"></i>
+                    </button>
+                    <button class="like-btn like-btn-down" 
+                            id="dislike-btn-{{ activity.id }}"
+                            title="Не нравится"
+                            data-reaction="dislike"
+                            data-activity-id="{{ activity.id }}"
+                            data-activity-name="{{ activity.title }}"
+                            data-activity-type="home_activity">
+                        <i class="fas fa-thumbs-down"></i>
+                    </button>
+                </div>
+                <small class="like-hint" id="like-hint-{{ activity.id }}" style="color: var(--text-muted); font-size: 0.75rem;">
+                    Ваши предпочтения
+                </small>
+            </div>
+        </div>
+
+        <div class="ha-section">
+            <h2><i class="fas fa-lightbulb"></i> Почему это подходит вам сейчас</h2>
+            <div class="why-grid">
+                {% set fl = {'high':'Высокая усталость','medium':'Умеренная усталость','low':'Много энергии'} %}
+                {% set ml = {'happy':'Радостное','calm':'Спокойное','thoughtful':'Задумчивое','adventurous':'Игривое','tired':'Уставшее','excited':'Воодушевлённое','sad':'Грустное','anxious':'Тревожное','angry':'Раздражённое','bored':'Скучающее'} %}
+                {% set cl = {'alone':'Вы один','partner':'С партнёром','friends':'С друзьями','family':'С семьёй'} %}
+                {% set tl = {'morning':'Утро','afternoon':'День','evening':'Вечер','night':'Ночь'} %}
+                <div class="why-item"><i class="fas fa-battery-half"></i> {{ fl.get(state.fatigue_level, state.fatigue_level) }}</div>
+                {% if state.mood and state.mood != 'skip' %}
+                <div class="why-item">{{ mood_icon(state.mood) }} {{ ml.get(state.mood, state.mood) }}</div>
+                {% endif %}
+                {% if state.with_company and state.with_company != 'skip' %}
+                <div class="why-item"><i class="fas fa-users"></i> {{ cl.get(state.with_company, state.with_company) }}</div>
+                {% endif %}
+                {% if state.time_of_day %}
+                <div class="why-item"><i class="fas fa-clock"></i> {{ tl.get(state.time_of_day, state.time_of_day) }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="ha-section">
+            <h2><i class="fas fa-play-circle"></i> Как начать</h2>
+            <div class="tips-list">
+                {% if activity.id == 'meditation' %}
+                <div class="tip-item"><div class="tip-num">1</div><p>Найдите тихое место, сядьте удобно.</p></div>
+                <div class="tip-item"><div class="tip-num">2</div><p>Закройте глаза, сделайте 3 глубоких вдоха.</p></div>
+                <div class="tip-item"><div class="tip-num">3</div><p>Сосредоточьтесь на дыхании 10–15 минут.</p></div>
+                <div class="tip-item"><div class="tip-num">4</div><p>Попробуйте приложения: Insight Timer, Calm.</p></div>
+                {% elif activity.id == 'movie' %}
+                <div class="tip-item"><div class="tip-num">1</div><p>Выберите жанр под настроение: комедия, драма, документалка.</p></div>
+                <div class="tip-item"><div class="tip-num">2</div><p>Приготовьте чай или перекус.</p></div>
+                <div class="tip-item"><div class="tip-num">3</div><p>Отключите уведомления на телефоне.</p></div>
+                <div class="tip-item"><div class="tip-num">4</div><p>Платформы: Кинопоиск, Okko, Netflix, YouTube.</p></div>
+                {% elif activity.id == 'book' %}
+                <div class="tip-item"><div class="tip-num">1</div><p>Выберите книгу, которую давно откладывали.</p></div>
+                <div class="tip-item"><div class="tip-num">2</div><p>Устройтесь в удобном кресле с хорошим освещением.</p></div>
+                <div class="tip-item"><div class="tip-num">3</div><p>Поставьте тихую фоновую музыку, если помогает.</p></div>
+                <div class="tip-item"><div class="tip-num">4</div><p>Электронные книги: Литрес, MyBook, Bookmate.</p></div>
+                {% elif activity.id == 'music' %}
+                <div class="tip-item"><div class="tip-num">1</div><p>Создайте плейлист под текущее настроение.</p></div>
+                <div class="tip-item"><div class="tip-num">2</div><p>Попробуйте жанр, который давно не слушали.</p></div>
+                <div class="tip-item"><div class="tip-num">3</div><p>Или откройте новый подкаст на интересную тему.</p></div>
+                <div class="tip-item"><div class="tip-num">4</div><p>Сервисы: Яндекс Музыка, Spotify, Apple Music.</p></div>
+                {% elif activity.id == 'cooking' %}
+                <div class="tip-item"><div class="tip-num">1</div><p>Выберите рецепт, который давно хотели попробовать.</p></div>
+                <div class="tip-item"><div class="tip-num">2</div><p>Проверьте наличие ингредиентов.</p></div>
+                <div class="tip-item"><div class="tip-num">3</div><p>Включите музыку или подкаст на кухне.</p></div>
+                <div class="tip-item"><div class="tip-num">4</div><p>Идеи рецептов: Едим Дома, Povarenok.ru.</p></div>
+                {% elif activity.id == 'games' %}
+                <div class="tip-item"><div class="tip-num">1</div><p>Выберите жанр: стратегия, RPG, головоломка.</p></div>
+                <div class="tip-item"><div class="tip-num">2</div><p>Для компании — онлайн-игры или настолки.</p></div>
+                <div class="tip-item"><div class="tip-num">3</div><p>Ограничьте время, чтобы не засидеться.</p></div>
+                <div class="tip-item"><div class="tip-num">4</div><p>Бесплатные игры: Steam Free, Яндекс Игры.</p></div>
+                {% elif activity.id == 'drawing' %}
+                <div class="tip-item"><div class="tip-num">1</div><p>Возьмите любой материал: карандаш, ручка, акварель.</p></div>
+                <div class="tip-item"><div class="tip-num">2</div><p>Не думайте о результате — просто рисуйте.</p></div>
+                <div class="tip-item"><div class="tip-num">3</div><p>Попробуйте zentangle или скетчинг.</p></div>
+                <div class="tip-item"><div class="tip-num">4</div><p>Уроки: YouTube-каналы по скетчингу.</p></div>
+                {% elif activity.id == 'yoga' %}
+                <div class="tip-item"><div class="tip-num">1</div><p>Расстелите коврик в тихом месте.</p></div>
+                <div class="tip-item"><div class="tip-num">2</div><p>Начните с 5–10 минут лёгкой растяжки.</p></div>
+                <div class="tip-item"><div class="tip-num">3</div><p>Следуйте видео-урокам для начинающих.</p></div>
+                <div class="tip-item"><div class="tip-num">4</div><p>Приложения: Down Dog, YouTube Yoga.</p></div>
+                {% elif activity.id == 'home_workout' %}
+                <div class="tip-item"><div class="tip-num">1</div><p>Выберите программу: HIIT, кардио, силовая.</p></div>
+                <div class="tip-item"><div class="tip-num">2</div><p>Разомнитесь 3–5 минут перед тренировкой.</p></div>
+                <div class="tip-item"><div class="tip-num">3</div><p>Не нужен инвентарь — только пространство.</p></div>
+                <div class="tip-item"><div class="tip-num">4</div><p>Приложения: Nike Training Club, FitOn.</p></div>
+                {% elif activity.id == 'journaling' %}
+                <div class="tip-item"><div class="tip-num">1</div><p>Возьмите блокнот или откройте заметки.</p></div>
+                <div class="tip-item"><div class="tip-num">2</div><p>Запишите 3 вещи, за которые благодарны сегодня.</p></div>
+                <div class="tip-item"><div class="tip-num">3</div><p>Набросайте план на завтра или неделю.</p></div>
+                <div class="tip-item"><div class="tip-num">4</div><p>Приложения: Notion, Day One, обычные заметки.</p></div>
+                {% elif activity.id == 'bath' %}
+                <div class="tip-item"><div class="tip-num">1</div><p>Наберите тёплую ванну (37–39°C).</p></div>
+                <div class="tip-item"><div class="tip-num">2</div><p>Добавьте соль, пену или ароматическое масло.</p></div>
+                <div class="tip-item"><div class="tip-num">3</div><p>Включите спокойную музыку или тишину.</p></div>
+                <div class="tip-item"><div class="tip-num">4</div><p>15–20 минут — оптимальное время.</p></div>
+                {% elif activity.id == 'online_learning' %}
+                <div class="tip-item"><div class="tip-num">1</div><p>Выберите тему, которая давно интересовала.</p></div>
+                <div class="tip-item"><div class="tip-num">2</div><p>Начните с короткого курса или видео (15–30 мин).</p></div>
+                <div class="tip-item"><div class="tip-num">3</div><p>Делайте заметки для лучшего усвоения.</p></div>
+                <div class="tip-item"><div class="tip-num">4</div><p>Платформы: Stepik, Coursera, YouTube.</p></div>
+                {% elif activity.id == 'call_friends' %}
+                <div class="tip-item"><div class="tip-num">1</div><p>Вспомните, кому давно не звонили.</p></div>
+                <div class="tip-item"><div class="tip-num">2</div><p>Напишите сообщение или позвоните прямо сейчас.</p></div>
+                <div class="tip-item"><div class="tip-num">3</div><p>Видеозвонок создаёт ощущение присутствия.</p></div>
+                <div class="tip-item"><div class="tip-num">4</div><p>Мессенджеры: Telegram, WhatsApp, FaceTime.</p></div>
+                {% elif activity.id == 'board_games_online' %}
+                <div class="tip-item"><div class="tip-num">1</div><p>Соберите компанию в чате или звонке.</p></div>
+                <div class="tip-item"><div class="tip-num">2</div><p>Выберите игру под количество участников.</p></div>
+                <div class="tip-item"><div class="tip-num">3</div><p>Объясните правила новичкам заранее.</p></div>
+                <div class="tip-item"><div class="tip-num">4</div><p>Платформы: Board Game Arena, Tabletopia, Jackbox.</p></div>
+                {% else %}
+                <div class="tip-item"><div class="tip-num">1</div><p>Найдите удобное место и время.</p></div>
+                <div class="tip-item"><div class="tip-num">2</div><p>Отключите лишние уведомления.</p></div>
+                <div class="tip-item"><div class="tip-num">3</div><p>Начните с малого — 15–20 минут.</p></div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if others %}
+        <div class="ha-section">
+            <h2><i class="fas fa-th-large"></i> Другие варианты для вас</h2>
+            <div class="others-grid">
+                {% for o in others %}
+                <a href="{{ url_for('home_activity_detail', activity_id=o.id) }}" class="other-card">
+                    <span class="other-icon">{{ activity_icon(o.id) }}</span>
+                    <div class="other-info">
+                        <strong>{{ o.title }}</strong>
+                        <span>{{ o.score|round|int }}% совпадение</span>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="detail-actions">
+            <a href="{{ url_for('recommendations') }}" class="btn btn-primary">
+                <i class="fas fa-list"></i> Все рекомендации
+            </a>
+            <a href="{{ url_for('ask_state') }}" class="btn btn-outline">
+                <i class="fas fa-magic"></i> Новая рекомендация
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Стили для кнопок лайков
+const style = document.createElement('style');
+style.textContent = `
+    .detail-likes {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        flex-shrink: 0;
+    }
+    
+    .like-buttons {
+        display: flex;
+        gap: 6px;
+    }
+    
+    .like-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border: 2px solid var(--border);
+        border-radius: 50%;
+        background-color: var(--bg-input);
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 0.9rem;
+    }
+    
+    .like-btn:hover {
+        transform: scale(1.1);
+        border-color: var(--primary);
+    }
+    
+    .like-btn-up.active {
+        background-color: var(--success);
+        border-color: var(--success);
+        color: white;
+    }
+    
+    .like-btn-down.active {
+        background-color: var(--danger);
+        border-color: var(--danger);
+        color: white;
+    }
+    
+    .like-hint {
+        text-align: center;
+    }
+`;
+document.head.appendChild(style);
+
+// Функции для работы с лайками
+async function loadLikeStats(objectType, objectId) {
+    try {
+        const response = await fetch(`/api/like/stats/${objectType}/${objectId}`);
+        const data = await response.json();
+        
+        if (response.ok) {
+            const likeBtn = document.getElementById(`like-btn-${objectId}`);
+            const dislikeBtn = document.getElementById(`dislike-btn-${objectId}`);
+            const hint = document.getElementById(`like-hint-${objectId}`);
+            
+            likeBtn.classList.remove('active');
+            dislikeBtn.classList.remove('active');
+            
+            if (data.user_reaction === 'like') {
+                likeBtn.classList.add('active');
+                if (hint) hint.textContent = 'Вам понравилось';
+            } else if (data.user_reaction === 'dislike') {
+                dislikeBtn.classList.add('active');
+                if (hint) hint.textContent = 'Вам не понравилось';
+            } else {
+                if (hint) hint.textContent = 'Ваши предпочтения';
+            }
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки реакции:', error);
+    }
+}
+
+async function setLike(objectType, objectId, reaction, objectName, objectTypeDetail) {
+    try {
+        const likeBtn = document.getElementById(`like-btn-${objectId}`);
+        const dislikeBtn = document.getElementById(`dislike-btn-${objectId}`);
+        const hint = document.getElementById(`like-hint-${objectId}`);
+        
+        // Toggle: если уже активна эта реакция, переключаем на neutral
+        let actualReaction = reaction;
+        if (reaction === 'like' && likeBtn && likeBtn.classList.contains('active')) {
+            actualReaction = 'neutral';
+        } else if (reaction === 'dislike' && dislikeBtn && dislikeBtn.classList.contains('active')) {
+            actualReaction = 'neutral';
+        }
+        
+        // Получаем CSRF токен
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
+        
+        const response = await fetch('/api/like', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                object_type: objectType,
+                object_id: objectId,
+                reaction: actualReaction,
+                object_name: objectName,
+                object_type_detail: objectTypeDetail
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            likeBtn.classList.remove('active');
+            dislikeBtn.classList.remove('active');
+            
+            if (actualReaction === 'like') {
+                likeBtn.classList.add('active');
+                if (hint) hint.textContent = 'Вам понравилось';
+            } else if (actualReaction === 'dislike') {
+                dislikeBtn.classList.add('active');
+                if (hint) hint.textContent = 'Вам не понравилось';
+            } else {
+                // neutral - обе кнопки неактивны
+                if (hint) hint.textContent = 'Ваши предпочтения';
+            }
+            
+            showNotification('Предпочтение сохранено!', 'success');
+        } else {
+            showNotification(data.error || 'Ошибка сохранения', 'error');
+        }
+    } catch (error) {
+        console.error('Ошибка установки реакции:', error);
+        showNotification('Ошибка соединения', 'error');
+    }
+}
+
+function showNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        border-radius: var(--radius-sm);
+        background-color: ${type === 'success' ? 'var(--success)' : 'var(--danger)'};
+        color: white;
+        font-weight: 500;
+        z-index: 1000;
+        animation: slideIn 0.3s ease-out;
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
+// Загружаем статистику лайков при загрузке страницы и добавляем обработчики
+document.addEventListener('DOMContentLoaded', function() {
+    const activityId = '{{ activity.id }}';
+    if (activityId) {
+        loadLikeStats('home_activity', activityId);
+    }
+    
+    // Добавляем обработчики для всех кнопок лайков
+    document.querySelectorAll('.like-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const reaction = this.dataset.reaction;
+            const activityId = this.dataset.activityId;
+            const activityName = this.dataset.activityName;
+            const activityType = this.dataset.activityType;
+            
+            setLike('home_activity', activityId, reaction, activityName, activityType);
+        });
+    });
+});
+</script>
+{% endblock %}

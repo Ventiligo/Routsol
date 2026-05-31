@@ -1,0 +1,458 @@
+{% extends "base.html" %}
+{% block title %}{{ place.name }} | Routsol Web{% endblock %}
+
+{% from '_macros.html' import place_icon %}
+{% block head_extra %}
+<!-- Debug: yandex_maps_key = "{{ yandex_maps_key }}" -->
+{% if yandex_maps_key %}
+<script src="https://api-maps.yandex.ru/2.1/?apikey={{ yandex_maps_key }}&lang=ru_RU" type="text/javascript"></script>
+{% else %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+{% endif %}
+<style>
+.detail-container { max-width: 780px; margin: 0 auto; }
+
+.back-link {
+    display: inline-flex; align-items: center; gap: 7px;
+    color: var(--primary); text-decoration: none; font-weight: 500;
+    margin-bottom: 16px; font-size: 0.9rem; transition: opacity 0.18s;
+}
+.back-link:hover { opacity: 0.75; }
+
+.detail-hero {
+    display: flex; align-items: flex-start; gap: 16px;
+    margin-bottom: 20px; padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+}
+.detail-hero-icon { font-size: 3.5rem; flex-shrink: 0; }
+.detail-hero-info { flex: 1; min-width: 0; }
+.detail-hero-info h1 { margin: 0 0 4px; color: var(--text); font-size: 1.4rem; font-weight: 800; }
+.detail-type { color: var(--text-muted); margin: 0 0 6px; text-transform: capitalize; font-size: 0.88rem; }
+.detail-score { color: var(--accent); font-size: 0.88rem; font-weight: 600; }
+.detail-score i { margin-right: 4px; }
+.detail-distance {
+    display: flex; flex-direction: column; align-items: center;
+    color: var(--primary); font-weight: 700; font-size: 1rem; flex-shrink: 0;
+}
+.detail-distance i { margin-bottom: 3px; }
+
+.detail-explanation {
+    background: var(--primary-light);
+    border-left: 3px solid var(--primary);
+    padding: 11px 14px; border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    margin-bottom: 20px; color: var(--text-secondary); font-size: 0.88rem;
+}
+.detail-explanation i { color: var(--accent); margin-right: 6px; }
+
+.detail-section { margin-bottom: 24px; }
+.detail-section h2 {
+    color: var(--text); margin-bottom: 12px; font-size: 1rem; font-weight: 700;
+    display: flex; align-items: center; gap: 7px;
+}
+.detail-section h2 i { color: var(--primary); }
+
+.detail-attrs { display: flex; flex-wrap: wrap; gap: 10px; }
+.detail-attr { display: flex; flex-direction: column; gap: 3px; }
+.attr-label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+.attr-badge { padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 500; background: var(--bg-input); color: var(--text-secondary); border: 1px solid var(--border); }
+.attr-quiet, .attr-relaxing { background: rgba(16,185,129,0.12); color: var(--success); border-color: rgba(16,185,129,0.2); }
+.attr-noisy, .attr-energetic { background: rgba(239,68,68,0.1); color: var(--danger); border-color: rgba(239,68,68,0.15); }
+.attr-active   { background: rgba(245,158,11,0.12); color: var(--accent); border-color: rgba(245,158,11,0.2); }
+.attr-passive  { background: var(--bg-input); color: var(--text-muted); }
+.attr-moderate { background: rgba(129,140,248,0.12); color: var(--primary); border-color: rgba(129,140,248,0.2); }
+.attr-low      { background: rgba(16,185,129,0.1); color: var(--success); }
+.attr-medium   { background: rgba(245,158,11,0.1); color: var(--accent); }
+.attr-high     { background: rgba(239,68,68,0.1); color: var(--danger); }
+.attr-small    { background: rgba(99,102,241,0.1); color: var(--primary); }
+.attr-large    { background: rgba(139,92,246,0.1); color: var(--purple); }
+
+.detail-address { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5; }
+
+#detail-map {
+    height: 300px; border-radius: var(--radius);
+    border: 1px solid var(--border); margin-bottom: 10px;
+}
+
+.btn-maps {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--success); color: #fff;
+    padding: 8px 16px; border-radius: var(--radius-sm);
+    text-decoration: none; font-size: 0.88rem; font-weight: 600;
+    transition: opacity 0.18s;
+}
+.btn-maps:hover { opacity: 0.85; color: #fff; }
+
+.similar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.similar-card {
+    display: flex; align-items: center; gap: 9px; padding: 11px;
+    background: var(--bg-input); border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm); text-decoration: none; color: inherit; transition: all 0.18s;
+}
+.similar-card:hover { border-color: var(--primary); background: var(--primary-light); }
+.similar-icon { font-size: 1.5rem; flex-shrink: 0; }
+.similar-info { display: flex; flex-direction: column; min-width: 0; }
+.similar-info strong { font-size: 0.84rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.similar-info span { font-size: 0.75rem; color: var(--text-muted); }
+
+.detail-actions { display: flex; gap: 12px; margin-top: 24px; justify-content: center; flex-wrap: wrap; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="detail-container">
+    <a href="{{ url_for('recommendations') }}" class="back-link">
+        <i class="fas fa-arrow-left"></i> Назад к рекомендациям
+    </a>
+
+    <div class="card">
+        <div class="detail-hero">
+            <div class="detail-hero-icon">{{ place_icon(place.place_type, 'pi-lg') }}</div>
+            <div class="detail-hero-info">
+                <h1>{{ place.name }}</h1>
+                <p class="detail-type">{{ place.place_type }}</p>
+                {% if place.match_score %}
+                <div class="detail-score"><i class="fas fa-star"></i> Соответствие: {{ place.match_score|round|int }}/100</div>
+                {% endif %}
+            </div>
+            {% if place.distance %}
+            <div class="detail-distance">
+                <i class="fas fa-walking"></i>
+                <span>{{ (place.distance / 1000)|round(1) }} км</span>
+            </div>
+            {% endif %}
+            
+            <!-- Кнопки лайков (личные предпочтения пользователя) -->
+            <div class="detail-likes" id="like-section-{{ place.id }}" data-object-type="place">
+                <div class="like-buttons">
+                    <button class="like-btn like-btn-up" 
+                            id="like-btn-{{ place.id }}"
+                            title="Нравится"
+                            data-reaction="like"
+                            data-place-id="{{ place.id }}"
+                            data-place-name="{{ place.name }}"
+                            data-place-type="{{ place.place_type }}">
+                        <i class="fas fa-thumbs-up"></i>
+                    </button>
+                    <button class="like-btn like-btn-down" 
+                            id="dislike-btn-{{ place.id }}"
+                            title="Не нравится"
+                            data-reaction="dislike"
+                            data-place-id="{{ place.id }}"
+                            data-place-name="{{ place.name }}"
+                            data-place-type="{{ place.place_type }}">
+                        <i class="fas fa-thumbs-down"></i>
+                    </button>
+                </div>
+                <small class="like-hint" id="like-hint-{{ place.id }}" style="color: var(--text-muted); font-size: 0.75rem;">
+                    Ваши предпочтения
+                </small>
+            </div>
+        </div>
+
+        {% if explanation %}
+        <div class="detail-explanation"><i class="fas fa-lightbulb"></i> {{ explanation }}</div>
+        {% endif %}
+
+        <div class="detail-section">
+            <h2><i class="fas fa-tags"></i> Характеристики</h2>
+            <div class="detail-attrs">
+                {% if place.atmosphere %}
+                <div class="detail-attr">
+                    <span class="attr-label">Атмосфера</span>
+                    <span class="attr-badge attr-{{ place.atmosphere }}">{{ place.atmosphere }}</span>
+                </div>
+                {% endif %}
+                {% if place.activity_level %}
+                <div class="detail-attr">
+                    <span class="attr-label">Активность</span>
+                    <span class="attr-badge attr-{{ place.activity_level }}">{{ place.activity_level }}</span>
+                </div>
+                {% endif %}
+                {% if place.avg_price %}
+                <div class="detail-attr">
+                    <span class="attr-label">Цены</span>
+                    <span class="attr-badge attr-{{ place.avg_price }}">{{ place.avg_price }}</span>
+                </div>
+                {% endif %}
+                {% if place.capacity %}
+                <div class="detail-attr">
+                    <span class="attr-label">Вместимость</span>
+                    <span class="attr-badge attr-{{ place.capacity }}">{{ place.capacity }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if place.address %}
+        <div class="detail-section">
+            <h2><i class="fas fa-map-marker-alt"></i> Адрес</h2>
+            <p class="detail-address">{{ place.address }}</p>
+        </div>
+        {% endif %}
+
+        <div class="detail-section">
+            <h2><i class="fas fa-map"></i> На карте</h2>
+            <div id="detail-map"
+                 data-lat="{{ place.latitude }}"
+                 data-lng="{{ place.longitude }}"
+                 data-name="{{ place.name | replace('"', '&quot;') }}"></div>
+            <a class="btn-maps"
+               href="https://yandex.ru/maps/?pt={{ place.longitude }},{{ place.latitude }}&z=16&l=map"
+               target="_blank" rel="noopener">
+                <i class="fas fa-external-link-alt"></i> Открыть в Яндекс.Картах
+            </a>
+        </div>
+
+        {% if similar %}
+        <div class="detail-section">
+            <h2><i class="fas fa-th-large"></i> Похожие места рядом</h2>
+            <div class="similar-grid">
+                {% for s in similar %}
+                <a href="{{ url_for('place_detail', place_id=s.id) }}" class="similar-card">
+                    <div class="similar-icon">{{ place_icon(s.place_type) }}</div>
+                    <div class="similar-info">
+                        <strong>{{ s.name }}</strong>
+                        <span>{{ (s.distance / 1000)|round(1) }} км</span>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="detail-actions">
+            <a href="{{ url_for('recommendations') }}" class="btn btn-primary">
+                <i class="fas fa-list"></i> Все рекомендации
+            </a>
+            <a href="{{ url_for('ask_state') }}" class="btn btn-outline">
+                <i class="fas fa-magic"></i> Новая рекомендация
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const mapEl = document.getElementById('detail-map');
+const lat = parseFloat(mapEl.dataset.lat);
+const lng = parseFloat(mapEl.dataset.lng);
+const name = mapEl.dataset.name;
+
+{% if yandex_maps_key %}
+ymaps.ready(function() {
+    const map = new ymaps.Map('detail-map', {
+        center: [lat, lng], zoom: 16,
+        controls: ['zoomControl', 'fullscreenControl']
+    });
+    map.geoObjects.add(new ymaps.Placemark([lat, lng],
+        {balloonContentHeader: name},
+        {preset: 'islands#violetDotIcon'}
+    ));
+});
+{% else %}
+const map = L.map('detail-map').setView([lat, lng], 16);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors', maxZoom: 19
+}).addTo(map);
+L.marker([lat, lng]).addTo(map).bindPopup('<b>' + name + '</b>').openPopup();
+{% endif %}
+
+// Стили для кнопок лайков
+const style = document.createElement('style');
+style.textContent = `
+    .detail-likes {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        flex-shrink: 0;
+    }
+    
+    .like-buttons {
+        display: flex;
+        gap: 6px;
+    }
+    
+    .like-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border: 2px solid var(--border);
+        border-radius: 50%;
+        background-color: var(--bg-input);
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 0.9rem;
+    }
+    
+    .like-btn:hover {
+        transform: scale(1.1);
+        border-color: var(--primary);
+    }
+    
+    .like-btn-up.active {
+        background-color: var(--success);
+        border-color: var(--success);
+        color: white;
+    }
+    
+    .like-btn-down.active {
+        background-color: var(--danger);
+        border-color: var(--danger);
+        color: white;
+    }
+    
+    .like-hint {
+        text-align: center;
+    }
+`;
+document.head.appendChild(style);
+
+// Функции для работы с лайками (личные предпочтения пользователя)
+async function loadLikeStats(objectType, objectId) {
+    try {
+        const response = await fetch(`/api/like/stats/${objectType}/${objectId}`);
+        const data = await response.json();
+        
+        if (response.ok) {
+            // Обновляем активные кнопки (показываем только реакцию пользователя)
+            const likeBtn = document.getElementById(`like-btn-${objectId}`);
+            const dislikeBtn = document.getElementById(`dislike-btn-${objectId}`);
+            const hint = document.getElementById(`like-hint-${objectId}`);
+            
+            likeBtn.classList.remove('active');
+            dislikeBtn.classList.remove('active');
+            
+            if (data.user_reaction === 'like') {
+                likeBtn.classList.add('active');
+                if (hint) hint.textContent = 'Вам понравилось';
+            } else if (data.user_reaction === 'dislike') {
+                dislikeBtn.classList.add('active');
+                if (hint) hint.textContent = 'Вам не понравилось';
+            } else {
+                if (hint) hint.textContent = 'Ваши предпочтения';
+            }
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки реакции:', error);
+    }
+}
+
+async function setLike(objectType, objectId, reaction, objectName, objectTypeDetail) {
+    try {
+        const likeBtn = document.getElementById(`like-btn-${objectId}`);
+        const dislikeBtn = document.getElementById(`dislike-btn-${objectId}`);
+        const hint = document.getElementById(`like-hint-${objectId}`);
+        
+        // Toggle: если уже активна эта реакция, переключаем на neutral
+        let actualReaction = reaction;
+        if (reaction === 'like' && likeBtn && likeBtn.classList.contains('active')) {
+            actualReaction = 'neutral';
+        } else if (reaction === 'dislike' && dislikeBtn && dislikeBtn.classList.contains('active')) {
+            actualReaction = 'neutral';
+        }
+        
+        // Получаем CSRF токен
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
+        
+        const response = await fetch('/api/like', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                object_type: objectType,
+                object_id: objectId,
+                reaction: actualReaction,
+                object_name: objectName,
+                object_type_detail: objectTypeDetail
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            // Обновляем активные кнопки
+            likeBtn.classList.remove('active');
+            dislikeBtn.classList.remove('active');
+            
+            if (actualReaction === 'like') {
+                likeBtn.classList.add('active');
+                if (hint) hint.textContent = 'Вам понравилось';
+            } else if (actualReaction === 'dislike') {
+                dislikeBtn.classList.add('active');
+                if (hint) hint.textContent = 'Вам не понравилось';
+            } else {
+                // neutral - обе кнопки неактивны
+                if (hint) hint.textContent = 'Оцените место';
+            }
+            
+            // Показываем уведомление
+            showNotification('Предпочтение сохранено! Это повлияет на рекомендации.', 'success');
+        } else {
+            showNotification(data.error || 'Ошибка сохранения', 'error');
+        }
+    } catch (error) {
+        console.error('Ошибка установки реакции:', error);
+        showNotification('Ошибка соединения', 'error');
+    }
+}
+
+function showNotification(message, type) {
+    // Создаём уведомление
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        border-radius: var(--radius-sm);
+        background-color: ${type === 'success' ? 'var(--success)' : 'var(--danger)'};
+        color: white;
+        font-weight: 500;
+        z-index: 1000;
+        animation: slideIn 0.3s ease-out;
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Удаляем через 3 секунды
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
+
+// Загружаем статистику лайков при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    // Для места на этой странице
+    const placeId = '{{ place.id }}';
+    if (placeId) {
+        loadLikeStats('place', placeId);
+    }
+    
+    // Добавляем обработчики для всех кнопок лайков
+    document.querySelectorAll('.like-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const reaction = this.dataset.reaction;
+            const placeId = this.dataset.placeId;
+            const placeName = this.dataset.placeName;
+            const placeType = this.dataset.placeType;
+            
+            setLike('place', placeId, reaction, placeName, placeType);
+        });
+    });
+});
+</script>
+{% endblock %}

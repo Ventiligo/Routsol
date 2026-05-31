@@ -1,0 +1,376 @@
+{% extends "base.html" %}
+{% block title %}Как вы себя чувствуете? | Routsol Web{% endblock %}
+
+{% block head_extra %}
+<style>
+.state-container { max-width: 860px; margin: 0 auto; }
+
+.state-header { text-align: center; margin-bottom: 28px; }
+.state-header h1 { font-size: 1.5rem; font-weight: 800; color: var(--text); margin-bottom: 8px; }
+.state-header p  { color: var(--text-secondary); font-size: 0.95rem; }
+
+.form-section {
+    margin-bottom: 32px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--border);
+}
+.form-section:last-of-type { border-bottom: none; }
+
+.form-section h2 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.form-section h2 i { color: var(--primary); }
+.section-description { color: var(--text-muted); font-size: 0.88rem; margin-bottom: 12px; }
+
+/* Location block */
+.location-box {
+    background: var(--bg-input);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+}
+.location-box label {
+    display: block;
+    font-weight: 500;
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+.location-box input {
+    width: 100%;
+    padding: 10px 13px;
+    background: var(--bg-card);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 0.93rem;
+    font-family: inherit;
+    transition: border-color 0.18s, box-shadow 0.18s;
+}
+.location-box input:focus {
+    outline: none;
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px var(--primary-light);
+}
+.location-box input::placeholder { color: var(--text-muted); }
+
+.geo-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 10px;
+    padding: 8px 16px;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.18s;
+    font-family: inherit;
+}
+.geo-btn:hover { opacity: 0.88; }
+.geo-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.location-examples {
+    margin-top: 12px;
+    padding: 12px 14px;
+    background: var(--primary-light);
+    border-radius: var(--radius-sm);
+    font-size: 0.83rem;
+    color: var(--text-secondary);
+}
+.location-examples strong { color: var(--primary); }
+.location-examples ul { margin: 6px 0 0 16px; }
+.location-examples li { margin-bottom: 2px; }
+
+.loc-status {
+    margin-top: 10px;
+    padding: 9px 13px;
+    border-radius: var(--radius-sm);
+    font-size: 0.86rem;
+    display: none;
+}
+.loc-status.success {
+    background: rgba(16,185,129,0.12);
+    color: var(--success);
+    border: 1px solid rgba(16,185,129,0.25);
+}
+.loc-status.error {
+    background: rgba(239,68,68,0.08);
+    color: var(--danger);
+    border: 1px solid rgba(239,68,68,0.18);
+}
+
+/* Fatigue cards */
+.fatigue-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+}
+.fatigue-card {
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 14px;
+    cursor: pointer;
+    transition: all 0.18s;
+    background: var(--bg-card);
+    display: block;
+}
+.fatigue-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+}
+.fatigue-card input { display: none; }
+.fatigue-card.selected {
+    border-color: var(--primary);
+    background: var(--primary-light);
+}
+.fatigue-content { text-align: center; }
+.fatigue-icon { font-size: 1.8rem; margin-bottom: 10px; color: var(--primary); }
+.fatigue-content h3 { font-size: 0.95rem; font-weight: 700; color: var(--text); margin-bottom: 5px; }
+.fatigue-content p  { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; }
+
+/* Mood / company chips */
+.chip-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.chip-option { flex: 0 0 auto; }
+.chip-option input { display: none; }
+.chip-option span {
+    display: block;
+    padding: 9px 14px;
+    text-align: center;
+    background: var(--bg-input);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.86rem;
+    color: var(--text);
+    transition: all 0.18s;
+    white-space: nowrap;
+}
+.chip-option span:hover { border-color: var(--primary); color: var(--primary); }
+.chip-option input:checked + span {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="state-container">
+    <div class="card">
+        <div class="state-header">
+            <h1><i class="fas fa-heartbeat" style="color:var(--primary);"></i> Как вы себя чувствуете прямо сейчас?</h1>
+            <p>Чтобы рекомендация была максимально точной, нам нужно знать ваше текущее состояние. Это займёт всего минуту.</p>
+        </div>
+
+        <form method="POST" action="{{ url_for('save_state') }}" id="stateForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="latitude" id="latitude">
+            <input type="hidden" name="longitude" id="longitude">
+
+            <!-- Местоположение -->
+            <div class="form-section">
+                <h2><i class="fas fa-map-marker-alt"></i> Ваше местоположение</h2>
+                <p class="section-description">Укажите адрес или используйте автоопределение местоположения</p>
+                <div class="location-box">
+                    <label for="address"><i class="fas fa-map-pin"></i> Адрес или район</label>
+                    <input type="text" id="address" name="address"
+                           placeholder="Например: Москва, Тверская улица, 1" required>
+                    <button type="button" class="geo-btn" id="getLocationBtn">
+                        <i class="fas fa-location-arrow"></i> Определить автоматически
+                    </button>
+                    <div id="locationStatus" class="loc-status"></div>
+                    <div class="location-examples">
+                        <strong>Примеры:</strong>
+                        <ul>
+                            <li>Москва, Красная площадь</li>
+                            <li>Санкт-Петербург, Невский проспект</li>
+                            <li>Казань, улица Баумана</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Усталость -->
+            <div class="form-section">
+                <h2><i class="fas fa-battery-half"></i> Уровень усталости</h2>
+                <div class="fatigue-options">
+                    <label class="fatigue-card" id="fc-low">
+                        <input type="radio" name="fatigue" value="low" required>
+                        <div class="fatigue-content">
+                            <div class="fatigue-icon"><i class="fas fa-battery-full"></i></div>
+                            <h3>Полон энергии</h3>
+                            <p>Готов к активностям, хочется двигаться и пробовать новое</p>
+                        </div>
+                    </label>
+                    <label class="fatigue-card" id="fc-medium">
+                        <input type="radio" name="fatigue" value="medium">
+                        <div class="fatigue-content">
+                            <div class="fatigue-icon"><i class="fas fa-battery-half"></i></div>
+                            <h3>Умеренно устал</h3>
+                            <p>Есть силы, но хочется баланса активности и отдыха</p>
+                        </div>
+                    </label>
+                    <label class="fatigue-card" id="fc-high">
+                        <input type="radio" name="fatigue" value="high">
+                        <div class="fatigue-content">
+                            <div class="fatigue-icon"><i class="fas fa-battery-empty"></i></div>
+                            <h3>Очень устал</h3>
+                            <p>Нужен спокойный, расслабляющий отдых</p>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Настроение -->
+            <div class="form-section">
+                <h2><i class="fas fa-smile"></i> Настроение <span style="font-weight:400; font-size:0.85rem; color:var(--text-muted);">(можно пропустить)</span></h2>
+                <div class="chip-options">
+                    {% for val, icon, label in [
+                        ('happy',       'fa-face-smile',        'Радостное'),
+                        ('excited',     'fa-face-grin-stars',   'Воодушевлённое'),
+                        ('calm',        'fa-face-meh',          'Спокойное'),
+                        ('thoughtful',  'fa-face-thinking',     'Задумчивое'),
+                        ('sad',         'fa-face-sad-tear',     'Грустное'),
+                        ('anxious',     'fa-face-grimace',      'Тревожное'),
+                        ('angry',       'fa-face-angry',        'Раздражённое'),
+                        ('bored',       'fa-face-rolling-eyes', 'Скучающее'),
+                        ('adventurous', 'fa-face-laugh-wink',   'Игривое'),
+                        ('tired',       'fa-face-tired',        'Уставшее'),
+                        ('skip',        'fa-forward',           'Пропустить')
+                    ] %}
+                    <label class="chip-option">
+                        <input type="radio" name="mood" value="{{ val }}">
+                        <span><i class="fas {{ icon }}"></i> {{ label }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Компания -->
+            <div class="form-section">
+                <h2><i class="fas fa-users"></i> С кем вы? <span style="font-weight:400; font-size:0.85rem; color:var(--text-muted);">(можно пропустить)</span></h2>
+                <div class="chip-options">
+                    {% for val, icon, label in [
+                        ('alone',   'fa-user',          'Один/одна'),
+                        ('partner', 'fa-heart',         'С партнёром'),
+                        ('friends', 'fa-user-group',    'С друзьями'),
+                        ('family',  'fa-house-chimney', 'С семьёй'),
+                        ('skip',    'fa-forward',       'Пропустить')
+                    ] %}
+                    <label class="chip-option">
+                        <input type="radio" name="company" value="{{ val }}">
+                        <span><i class="fas {{ icon }}"></i> {{ label }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block" style="padding:13px; font-size:1rem;">
+                <i class="fas fa-magic"></i> Получить рекомендации
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Highlight fatigue card on select
+document.querySelectorAll('.fatigue-card input').forEach(radio => {
+    radio.addEventListener('change', function() {
+        document.querySelectorAll('.fatigue-card').forEach(c => c.classList.remove('selected'));
+        this.closest('.fatigue-card').classList.add('selected');
+    });
+});
+
+document.getElementById('getLocationBtn').addEventListener('click', function () {
+    const btn = this;
+    const status = document.getElementById('locationStatus');
+    if (!navigator.geolocation) {
+        showStatus(status, 'error', 'Геолокация не поддерживается браузером');
+        return;
+    }
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Определяем...';
+    status.style.display = 'none';
+
+    navigator.geolocation.getCurrentPosition(
+        function (pos) {
+            const lat = pos.coords.latitude, lng = pos.coords.longitude;
+            document.getElementById('latitude').value = lat;
+            document.getElementById('longitude').value = lng;
+            fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng + '&accept-language=ru')
+                .then(r => r.json())
+                .then(data => {
+                    const addr = data.display_name || (lat.toFixed(5) + ', ' + lng.toFixed(5));
+                    document.getElementById('address').value = addr;
+                    showStatus(status, 'success', '<i class="fas fa-check-circle"></i> ' + addr);
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-check"></i> Определено';
+                }).catch(() => {
+                    document.getElementById('address').value = lat.toFixed(5) + ', ' + lng.toFixed(5);
+                    showStatus(status, 'success', '<i class="fas fa-check-circle"></i> Координаты получены');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-check"></i> Определено';
+                });
+        },
+        function (err) {
+            const msgs = { 1: 'Доступ запрещён. Разрешите геолокацию в браузере.', 2: 'Местоположение недоступно', 3: 'Превышено время ожидания' };
+            showStatus(status, 'error', '<i class="fas fa-exclamation-circle"></i> ' + (msgs[err.code] || 'Ошибка'));
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-location-arrow"></i> Определить автоматически';
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+});
+
+function showStatus(el, type, html) {
+    el.className = 'loc-status ' + type;
+    el.innerHTML = html;
+    el.style.display = 'block';
+}
+
+document.getElementById('stateForm').addEventListener('submit', function (e) {
+    const address = document.getElementById('address').value.trim();
+    if (!address) { e.preventDefault(); alert('Укажите адрес или используйте автоопределение'); return; }
+    if (!document.getElementById('latitude').value) {
+        e.preventDefault();
+        geocodeAddress(address);
+    }
+});
+
+function geocodeAddress(address) {
+    const status = document.getElementById('locationStatus');
+    showStatus(status, '', '<i class="fas fa-spinner fa-spin"></i> Определяем координаты...');
+    fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(address) + '&accept-language=ru&limit=1')
+        .then(r => r.json())
+        .then(data => {
+            if (data && data.length > 0) {
+                document.getElementById('latitude').value = data[0].lat;
+                document.getElementById('longitude').value = data[0].lon;
+                showStatus(status, 'success', '<i class="fas fa-check-circle"></i> Координаты найдены');
+                setTimeout(() => document.getElementById('stateForm').submit(), 400);
+            } else {
+                showStatus(status, 'error', '<i class="fas fa-exclamation-circle"></i> Адрес не найден. Уточните запрос.');
+            }
+        }).catch(() => {
+            showStatus(status, 'error', '<i class="fas fa-exclamation-circle"></i> Ошибка. Попробуйте ещё раз.');
+        });
+}
+</script>
+{% endblock %}

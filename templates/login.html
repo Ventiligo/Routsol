@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Вход | Routsol Web{% endblock %}
+
+{% block head_extra %}
+<style>
+.auth-container { max-width: 420px; margin: 40px auto; }
+.auth-header { text-align: center; margin-bottom: 28px; }
+.auth-icon { font-size: 2.8rem; color: var(--primary); margin-bottom: 10px; display: block; }
+.auth-header h1 { margin: 0 0 6px; color: var(--text); font-size: 1.5rem; font-weight: 800; }
+.auth-header p { color: var(--text-muted); margin: 0; font-size: 0.9rem; }
+.auth-form { display: flex; flex-direction: column; gap: 16px; }
+.auth-form .form-group { display: flex; flex-direction: column; gap: 5px; }
+.auth-form label { font-weight: 500; color: var(--text-secondary); font-size: 0.88rem; }
+.auth-form label i { margin-right: 5px; color: var(--primary); }
+.auth-form input {
+    padding: 10px 13px;
+    background: var(--bg-input);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 0.95rem;
+    font-family: inherit;
+    transition: border-color 0.18s, box-shadow 0.18s;
+}
+.auth-form input:focus { outline: none; border-color: var(--border-focus); box-shadow: 0 0 0 3px var(--primary-light); }
+.auth-form input::placeholder { color: var(--text-muted); }
+.auth-footer { text-align: center; margin-top: 18px; color: var(--text-muted); font-size: 0.88rem; }
+.auth-footer a { color: var(--primary); font-weight: 500; }
+.auth-footer a:hover { text-decoration: underline; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="card">
+        <div class="auth-header">
+            <i class="fas fa-sign-in-alt auth-icon"></i>
+            <h1>Вход в аккаунт</h1>
+            <p>Войдите, чтобы получать персональные рекомендации</p>
+        </div>
+        <form method="POST" action="{{ url_for('login', next=request.args.get('next', '')) }}" class="auth-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="username"><i class="fas fa-user"></i> Имя пользователя</label>
+                <input type="text" id="username" name="username" required
+                       placeholder="Введите имя пользователя"
+                       value="{{ request.form.get('username', '') }}">
+            </div>
+            <div class="form-group">
+                <label for="password"><i class="fas fa-lock"></i> Пароль</label>
+                <input type="password" id="password" name="password" required placeholder="Введите пароль">
+            </div>
+            <button type="submit" class="btn btn-primary btn-block" style="margin-top:4px;">
+                <i class="fas fa-sign-in-alt"></i> Войти
+            </button>
+        </form>
+        <div class="auth-footer">
+            Нет аккаунта? <a href="{{ url_for('register') }}">Зарегистрироваться</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,80 @@
+{% macro place_icon(place_type, size='') %}
+{% set cfg = {
+  'cafe':       ('fa-mug-hot',      'pi-cafe'),
+  'restaurant': ('fa-utensils',     'pi-restaurant'),
+  'park':       ('fa-tree',         'pi-park'),
+  'cinema':     ('fa-film',         'pi-cinema'),
+  'gym':        ('fa-dumbbell',     'pi-gym'),
+  'museum':     ('fa-landmark',     'pi-museum'),
+  'bar':        ('fa-wine-glass',   'pi-bar'),
+  'shopping':   ('fa-bag-shopping', 'pi-shopping'),
+} %}
+{% set icon, cls = cfg.get(place_type, ('fa-location-dot', 'pi-default')) %}
+<span class="pi {{ cls }} {{ size }}"><i class="fas {{ icon }}"></i></span>
+{% endmacro %}
+
+{% macro activity_icon(act_id, size='') %}
+{% set cfg = {
+  'meditation':        ('fa-spa',              'pi-meditation'),
+  'book':              ('fa-book-open',         'pi-book'),
+  'journaling':        ('fa-pen-to-square',     'pi-journaling'),
+  'bath':              ('fa-bath',              'pi-bath'),
+  'drawing':           ('fa-paintbrush',        'pi-drawing'),
+  'online_learning':   ('fa-graduation-cap',    'pi-learning'),
+  'home_workout':      ('fa-person-running',    'pi-workout'),
+  'yoga':              ('fa-person-praying',    'pi-yoga'),
+  'podcast':           ('fa-headphones',        'pi-podcast'),
+  'photography':       ('fa-camera',            'pi-photo'),
+  'declutter':         ('fa-broom',             'pi-clean'),
+  'stretching':        ('fa-person-walking',    'pi-walk'),
+  'movie':             ('fa-clapperboard',      'pi-movie'),
+  'movie_partner':     ('fa-clapperboard',      'pi-movie'),
+  'family_movie':      ('fa-clapperboard',      'pi-movie'),
+  'cooking':           ('fa-kitchen-set',       'pi-cooking'),
+  'cooking_partner':   ('fa-kitchen-set',       'pi-cooking'),
+  'cooking_friends':   ('fa-kitchen-set',       'pi-cooking'),
+  'family_cooking':    ('fa-kitchen-set',       'pi-cooking'),
+  'games':             ('fa-gamepad',           'pi-games'),
+  'board_game_partner':('fa-chess',             'pi-board'),
+  'family_games':      ('fa-chess',             'pi-board'),
+  'board_games_online':('fa-dice',              'pi-board'),
+  'call_friends':      ('fa-phone',             'pi-call'),
+  'watch_party':       ('fa-tv',                'pi-watch'),
+  'quiz_friends':      ('fa-circle-question',   'pi-quiz'),
+  'spa_partner':       ('fa-spa',               'pi-spa'),
+  'family_craft':      ('fa-scissors',          'pi-craft'),
+  'music':             ('fa-music',             'pi-music'),
+} %}
+{% set icon, cls = cfg.get(act_id, ('fa-star', 'pi-default')) %}
+<span class="pi {{ cls }} {{ size }}"><i class="fas {{ icon }}"></i></span>
+{% endmacro %}
+
+{% macro mood_icon(mood) %}
+{% set cfg = {
+  'happy':       'fa-face-smile',
+  'excited':     'fa-face-grin-stars',
+  'calm':        'fa-face-meh',
+  'thoughtful':  'fa-face-thinking',
+  'sad':         'fa-face-sad-tear',
+  'anxious':     'fa-face-grimace',
+  'angry':       'fa-face-angry',
+  'bored':       'fa-face-rolling-eyes',
+  'adventurous': 'fa-face-laugh-wink',
+  'tired':       'fa-face-tired',
+} %}
+<i class="fas {{ cfg.get(mood, 'fa-face-meh') }}"></i>
+{% endmacro %}
+
+{% macro fatigue_icon(level) %}
+{% if level == 'high' %}<i class="fas fa-battery-empty"></i>
+{% elif level == 'medium' %}<i class="fas fa-battery-half"></i>
+{% else %}<i class="fas fa-battery-full"></i>{% endif %}
+{% endmacro %}
+
+{% macro tod_icon(tod) %}
+{% if tod == 'morning' %}<i class="fas fa-sun"></i>
+{% elif tod == 'afternoon' %}<i class="fas fa-cloud-sun"></i>
+{% elif tod == 'evening' %}<i class="fas fa-moon"></i>
+{% elif tod == 'night' %}<i class="fas fa-star"></i>
+{% endif %}
+{% endmacro %}

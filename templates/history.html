@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}История рекомендаций | Routsol Web{% endblock %}
+
+{% from '_macros.html' import place_icon, mood_icon, fatigue_icon %}
+
+{% block head_extra %}
+<style>
+.history-container { max-width: 860px; margin: 0 auto; }
+
+.history-header { margin-bottom: 24px; }
+.history-header h1 {
+    font-size: 1.4rem; font-weight: 800; color: var(--text);
+    display: flex; align-items: center; gap: 8px; margin-bottom: 4px;
+}
+.history-header h1 i { color: var(--primary); }
+.history-header p { color: var(--text-muted); font-size: 0.88rem; }
+
+.history-list { display: flex; flex-direction: column; gap: 16px; }
+
+.history-session {
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    background: var(--bg-card);
+    transition: border-color 0.18s;
+}
+.history-session:hover { border-color: var(--primary); }
+
+.session-meta {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 10px;
+    color: var(--text-muted);
+    font-size: 0.84rem;
+    flex-wrap: wrap;
+}
+.session-meta i { margin-right: 4px; }
+
+.session-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+
+.sbadge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 500;
+}
+.sbadge-fatigue  { background: var(--primary-light); color: var(--primary); }
+.sbadge-mood     { background: rgba(139,92,246,0.12); color: var(--purple); }
+.sbadge-company  { background: rgba(16,185,129,0.12); color: var(--success); }
+.sbadge-location { background: rgba(245,158,11,0.12); color: var(--accent); }
+.sbadge-location i { margin-right: 3px; }
+
+.session-places {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.history-place-card {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 11px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.18s;
+}
+.history-place-card:hover {
+    border-color: var(--primary);
+    background: var(--primary-light);
+    color: inherit;
+}
+.hpc-icon { font-size: 1.3rem; flex-shrink: 0; }
+.hpc-info { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.hpc-info strong {
+    font-size: 0.83rem;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.hpc-type { font-size: 0.73rem; color: var(--text-muted); text-transform: capitalize; }
+.hpc-score { font-size: 0.8rem; font-weight: 700; color: var(--accent); flex-shrink: 0; }
+
+.session-repeat-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--primary);
+    text-decoration: none;
+    font-size: 0.84rem;
+    font-weight: 500;
+    transition: opacity 0.18s;
+}
+.session-repeat-link:hover { opacity: 0.75; }
+
+.history-empty {
+    text-align: center;
+    padding: 56px 20px;
+}
+.history-empty i { font-size: 3.5rem; color: var(--text-muted); opacity: 0.3; margin-bottom: 14px; display: block; }
+.history-empty h2 { color: var(--text-secondary); margin-bottom: 6px; font-size: 1.1rem; }
+.history-empty p  { color: var(--text-muted); margin-bottom: 18px; font-size: 0.9rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="history-container">
+    <div class="card">
+        <div class="history-header">
+            <h1><i class="fas fa-history"></i> История рекомендаций</h1>
+            <p>Все ваши прошлые сессии и найденные места</p>
+        </div>
+
+        {% if history_items %}
+        <div class="history-list">
+            {% for item in history_items %}
+            {% set state = item.state %}
+            {% set places = item.places %}
+            <div class="history-session">
+                <div class="session-meta">
+                    <span><i class="fas fa-calendar-alt"></i>{{ state.created_at.strftime('%d.%m.%Y') }}</span>
+                    <span><i class="fas fa-clock"></i>{{ state.created_at.strftime('%H:%M') }}</span>
+                </div>
+                <div class="session-badges">
+                    {% set fl = {'high':'Устал','medium':'Умеренно','low':'Бодр'} %}
+                    <span class="sbadge sbadge-fatigue">{{ fatigue_icon(state.fatigue_level) }} {{ fl.get(state.fatigue_level, state.fatigue_level) }}</span>
+                    {% if state.mood and state.mood != 'skip' %}
+                    {% set ml = {'happy':'Радостное','calm':'Спокойное','thoughtful':'Задумчивое','adventurous':'Игривое','tired':'Уставшее','excited':'Воодушевлённое','sad':'Грустное','anxious':'Тревожное','angry':'Раздражённое','bored':'Скучающее'} %}
+                    <span class="sbadge sbadge-mood">{{ mood_icon(state.mood) }} {{ ml.get(state.mood, state.mood) }}</span>
+                    {% endif %}
+                    {% if state.with_company and state.with_company != 'skip' %}
+                    {% set cl = {'alone':'Один','partner':'С партнёром','friends':'С друзьями','family':'С семьёй'} %}
+                    <span class="sbadge sbadge-company"><i class="fas fa-users"></i> {{ cl.get(state.with_company, state.with_company) }}</span>
+                    {% endif %}
+                    {% if state.address %}
+                    <span class="sbadge sbadge-location"><i class="fas fa-map-marker-alt"></i>{{ state.address[:38] }}{% if state.address|length > 38 %}…{% endif %}</span>
+                    {% endif %}
+                </div>
+
+                <div class="session-places">
+                    {% for place in places %}
+                    <a href="{{ url_for('place_detail', place_id=place.id) }}" class="history-place-card">
+                        <span class="hpc-icon">{{ place_icon(place.place_type) }}</span>
+                        <div class="hpc-info">
+                            <strong>{{ place.name }}</strong>
+                            <span class="hpc-type">{{ place.place_type }}</span>
+                        </div>
+                        {% if place.match_score %}
+                        <span class="hpc-score">{{ place.match_score|round|int }}%</span>
+                        {% endif %}
+                    </a>
+                    {% endfor %}
+                </div>
+
+                <a href="{{ url_for('recommendations') }}" class="session-repeat-link">
+                    <i class="fas fa-redo"></i> Повторить похожую рекомендацию
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% else %}
+        <div class="history-empty">
+            <i class="fas fa-map-marked-alt"></i>
+            <h2>История пуста</h2>
+            <p>Получите первую рекомендацию — она сохранится здесь.</p>
+            <a href="{{ url_for('ask_state') }}" class="btn btn-primary">
+                <i class="fas fa-magic"></i> Получить рекомендацию
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+{% block title %}{{ target.username }} | Routsol Web{% endblock %}
+
+{% block head_extra %}
+<style>
+.page-narrow { max-width: 580px; margin: 0 auto; }
+.profile-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+.profile-info { flex: 1; min-width: 0; }
+.profile-name { font-size: 1.3rem; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.profile-meta { color: var(--text-muted); font-size: 0.86rem; }
+.invite-box {
+    background: var(--bg-input);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+}
+.friends-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.friend-chip {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 12px;
+    background: var(--bg-input);
+    border-radius: var(--radius-sm);
+    font-size: 0.86rem;
+    color: var(--text);
+    text-decoration: none;
+    transition: background 0.15s;
+}
+.friend-chip:hover { background: var(--primary-light); color: var(--primary); }
+.inv-status { font-size: 0.84rem; color: var(--success); margin-top: 8px; display: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-narrow">
+    <div class="card">
+        <div class="profile-header">
+            <div class="avatar avatar-lg">{{ target.username[0].upper() }}</div>
+            <div class="profile-info">
+                <div class="profile-name" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:300px;">{{ target.username }}</div>
+                <div class="profile-meta">
+                    {% if (not privacy or privacy.show_age) and target.age %}{{ target.age }} лет{% endif %}
+                    {% if (not privacy or privacy.show_gender) and target.gender %}
+                        {% if target.gender == 'male' %} · Мужской{% elif target.gender == 'female' %} · Женский{% endif %}
+                    {% endif %}
+                    {% if (not privacy or privacy.show_email) and target.email %}
+                        · {{ target.email }}
+                    {% endif %}
+                </div>
+                {% if target.psychological_profile and (not privacy or privacy.show_profile_scores) %}
+                <div style="margin-top:8px;">
+                    <span class="badge badge-primary"><i class="fas fa-brain"></i> Психопрофиль заполнен</span>
+                </div>
+                {% endif %}
+            </div>
+            <div id="friend-action" style="flex-shrink:0;">
+                {% if privacy and not privacy.allow_friend_requests and not (req and req.status == 'accepted') %}
+                <span class="badge badge-declined"><i class="fas fa-lock"></i> Запросы закрыты</span>
+                {% elif req %}
+                    {% if req.status == 'accepted' %}
+                    <span class="badge badge-accepted"><i class="fas fa-user-check"></i> Друг</span>
+                    {% elif req.status == 'pending' and req.sender_id == current_user.id %}
+                    <span class="badge badge-pending"><i class="fas fa-clock"></i> Запрос отправлен</span>
+                    {% elif req.status == 'pending' and req.receiver_id == current_user.id %}
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <button class="btn btn-success btn-sm" onclick="respondReq({{ req.id }}, 'accept')">
+                            <i class="fas fa-check"></i> Принять
+                        </button>
+                        <button class="btn btn-outline btn-sm" onclick="respondReq({{ req.id }}, 'decline')">
+                            Отклонить
+                        </button>
+                    </div>
+                    {% endif %}
+                {% else %}
+                <button class="btn btn-primary btn-sm" onclick="sendReq({{ target.id }})">
+                    <i class="fas fa-user-plus"></i> Добавить в друзья
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if req and req.status == 'accepted' %}
+        <hr class="divider">
+        <div class="section-title"><i class="fas fa-paper-plane"></i> Предложить активность</div>
+        <div class="invite-box">
+            <div class="form-group">
+                <label class="form-label">Название активности</label>
+                <input type="text" id="inv-name" class="form-control" placeholder="Например: Поход в кино">
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+                <label class="form-label">Сообщение (необязательно)</label>
+                <input type="text" id="inv-msg" class="form-control" placeholder="Привет! Пойдём вместе?">
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="sendInvite({{ target.id }})">
+                <i class="fas fa-paper-plane"></i> Отправить приглашение
+            </button>
+            <div class="inv-status" id="inv-status">
+                <i class="fas fa-check-circle"></i> Приглашение отправлено!
+            </div>
+        </div>
+        {% endif %}
+
+        {% if friends %}
+        <hr class="divider">
+        <div class="section-title"><i class="fas fa-user-friends"></i> Друзья ({{ friends|length }})</div>
+        <div class="friends-chips">
+            {% for f in friends[:8] %}
+            <a href="{{ url_for('social_profile', uid=f.id) }}" class="friend-chip">
+                <div class="avatar avatar-sm">{{ f.username[0].upper() }}</div>
+                <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100px;">{{ f.username }}</span>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% set profile = target.psychological_profile %}
+        {% if profile and (not privacy or privacy.show_profile_scores) %}
+        <hr class="divider">
+        <div class="section-title"><i class="fas fa-brain"></i> Психологический профиль</div>
+        {% set scale_names = {
+            'extraversion':      ('fa-users',          'Экстраверсия'),
+            'openness':          ('fa-compass',         'Открытость опыту'),
+            'sensation_seeking': ('fa-bolt',            'Поиск ощущений'),
+            'conscientiousness': ('fa-calendar-check',  'Сознательность'),
+            'proactivity':       ('fa-rocket',          'Проактивность'),
+            'neuroticism':       ('fa-leaf',            'Потребность в покое'),
+        } %}
+        <div style="display:flex; flex-direction:column; gap:10px;">
+            {% for key, (icon, label) in scale_names.items() %}
+            {% set score = profile|attr(key) if profile|attr(key) is not none else 0 %}
+            {% set pct = ((score or 0) / 15 * 100)|int %}
+            <div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                    <span style="font-size:0.86rem; font-weight:600; color:var(--text);">
+                        <i class="fas {{ icon }} text-primary"></i> {{ label }}
+                    </span>
+                    <span style="font-size:0.82rem; color:var(--text-muted);">{{ score }}/15</span>
+                </div>
+                <div style="height:5px; background:var(--border); border-radius:3px; overflow:hidden;">
+                    <div style="height:100%; width:{{ pct }}%; background:var(--gradient); border-radius:3px;"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if (not privacy or privacy.show_restrictions) and profile and (profile.no_alcohol or profile.low_budget or profile.physical_limits) %}
+        <hr class="divider">
+        <div class="section-title"><i class="fas fa-shield-alt"></i> Ограничения</div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+            {% if profile.no_alcohol %}
+            <span class="badge badge-primary"><i class="fas fa-wine-glass-alt"></i> Без алкоголя</span>
+            {% endif %}
+            {% if profile.physical_limits %}
+            <span class="badge badge-primary"><i class="fas fa-wheelchair"></i> Физические ограничения</span>
+            {% endif %}
+            {% if profile.low_budget %}
+            <span class="badge badge-primary"><i class="fas fa-wallet"></i> Ограниченный бюджет</span>
+            {% endif %}
+        </div>
+        {% endif %}
+        
+        <!-- Предпочтения пользователя (лайки/дизлайки) -->
+        <div id="public-likes-section" style="display: none;">
+            <hr class="divider">
+            <div class="section-title"><i class="fas fa-heart"></i> Предпочтения</div>
+            <div id="public-likes-list">Загрузка...</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function sendReq(uid) {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
+    fetch('/social/friend_request/' + uid, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken
+        }
+    })
+        .then(r => r.json())
+        .then(() => {
+            document.getElementById('friend-action').innerHTML =
+                '<span class="badge badge-pending"><i class="fas fa-clock"></i> Запрос отправлен</span>';
+        });
+}
+function respondReq(id, action) {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
+    fetch('/social/friend_request/' + id + '/respond', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({action})
+    }).then(() => location.reload());
+}
+function sendInvite(uid) {
+    const name = document.getElementById('inv-name').value.trim();
+    if (!name) { alert('Введите название активности'); return; }
+    fetch('/social/invite', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            receiver_id: uid,
+            activity_type: 'custom',
+            activity_name: name,
+            activity_icon: 'fa-star',
+            message: document.getElementById('inv-msg').value.trim()
+        })
+    }).then(r => r.json()).then(() => {
+        const s = document.getElementById('inv-status');
+        s.style.display = 'block';
+        document.getElementById('inv-name').value = '';
+        document.getElementById('inv-msg').value = '';
+    });
+}
+
+// Загружаем публичные предпочтения пользователя
+async function loadPublicLikes() {
+    const userId = {{ target.id }};
+    const likesSection = document.getElementById('public-likes-section');
+    const likesList = document.getElementById('public-likes-list');
+    
+    try {
+        const response = await fetch(`/api/user/${userId}/likes`);
+        const data = await response.json();
+        
+        if (!response.ok || !data.show_likes) {
+            // Пользователь не показывает свои предпочтения
+            likesSection.style.display = 'none';
+            return;
+        }
+        
+        likesSection.style.display = 'block';
+        
+        if (data.total === 0) {
+            likesList.innerHTML = `
+                <div style="text-align: center; padding: 16px; color: var(--text-muted);">
+                    <i class="fas fa-heart-broken" style="font-size: 1.5rem; margin-bottom: 8px; opacity: 0.5;"></i>
+                    <p style="font-size: 0.85rem;">Пользователь пока не оценил ни одного места</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '';
+        const recentLikes = data.all.slice(0, 5);
+        
+        recentLikes.forEach(like => {
+            const icon = like.reaction === 'like' ? 'fa-thumbs-up' : 'fa-thumbs-down';
+            const color = like.reaction === 'like' ? 'var(--success)' : 'var(--danger)';
+            const typeIcon = like.object_type === 'place' ? 'fa-map-marker-alt' : 'fa-home';
+            
+            html += `
+                <div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: var(--bg-input); border-radius: var(--radius-sm); margin-bottom: 8px;">
+                    <i class="fas ${typeIcon}" style="color: var(--primary);"></i>
+                    <span style="flex: 1; font-weight: 500; color: var(--text);">${like.object_name || 'Без названия'}</span>
+                    <i class="fas ${icon}" style="color: ${color};"></i>
+                </div>
+            `;
+        });
+        
+        if (data.total > 5) {
+            html += `<p style="text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-top: 8px;">
+                и ещё ${data.total - 5} оценок...
+            </p>`;
+        }
+        
+        likesList.innerHTML = html;
+        
+    } catch (error) {
+        console.error('Ошибка загрузки предпочтений:', error);
+        likesSection.style.display = 'none';
+    }
+}
+
+// Загружаем при открытии страницы
+document.addEventListener('DOMContentLoaded', loadPublicLikes);
+</script>
+{% endblock %}

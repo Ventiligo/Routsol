@@ -1,0 +1,365 @@
+<!-- templates/questionnaire.html - дополненная версия с возрастом и полом -->
+{% extends "base.html" %}
+
+{% block title %}Психологическая анкета | Routsol Web{% endblock %}
+
+{% block head_extra %}
+<style>
+    .demographics-card {
+        background: var(--gradient);
+        color: #fff;
+        padding: 28px;
+        border-radius: var(--radius);
+        margin-bottom: 28px;
+    }
+    .demographics-card h2 { color: #fff; margin-bottom: 18px; }
+    .demographics-card h2 i { margin-right: 8px; }
+    .form-row { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; margin-bottom: 18px; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; margin-bottom: 6px; font-weight: 500; color: rgba(255,255,255,0.9); }
+    .form-control {
+        width: 100%; padding: 10px 13px;
+        border: 1.5px solid rgba(255,255,255,0.3);
+        background: rgba(255,255,255,0.12);
+        color: #fff; border-radius: var(--radius-sm); font-size: 0.95rem; font-family: inherit;
+    }
+    .form-control:focus { outline: none; border-color: #fff; background: rgba(255,255,255,0.2); }
+    .form-control option { background: var(--primary); color: #fff; }
+    .gender-options { display: flex; gap: 10px; flex-wrap: wrap; }
+    .gender-option { flex: 1; min-width: 90px; }
+    .gender-option input { display: none; }
+    .gender-option label {
+        display: block; padding: 10px; text-align: center;
+        background: rgba(255,255,255,0.12); border: 1.5px solid rgba(255,255,255,0.25);
+        border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s; font-size: 0.85rem; color: #fff;
+    }
+    .gender-option input:checked + label { background: #fff; color: var(--primary); border-color: #fff; font-weight: 600; }
+    .btn-start-questionnaire {
+        background: #fff; color: var(--primary);
+        padding: 12px 24px; border: none; border-radius: var(--radius-sm);
+        font-size: 1rem; font-weight: 700; cursor: pointer; transition: all 0.2s; width: 100%; font-family: inherit;
+    }
+    .btn-start-questionnaire:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0,0,0,0.2); }
+    .btn-start-questionnaire:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .likert-scale {
+        display: flex; justify-content: space-between; margin: 18px 0; padding: 8px;
+        background: var(--bg-input); border-radius: 50px; gap: 4px;
+    }
+    .likert-option {
+        flex: 1; text-align: center; cursor: pointer; padding: 9px 4px;
+        border-radius: 40px; transition: all 0.18s;
+    }
+    .likert-option:hover { background: var(--primary-light); }
+    .likert-option.selected { background: var(--primary); color: #fff; font-weight: 600; }
+    .likert-option .number { font-size: 1.1rem; font-weight: 700; display: block; color: inherit; }
+    .likert-option .label { font-size: 0.72rem; margin-top: 3px; color: var(--text-muted); }
+    .likert-option.selected .label { color: rgba(255,255,255,0.85); }
+
+    .question-counter { text-align: center; font-size: 0.85rem; color: var(--text-muted); margin: 8px 0 16px; }
+
+    .scale-tag {
+        display: inline-block; padding: 3px 11px;
+        background: rgba(16,185,129,0.12); color: var(--success);
+        border-radius: 20px; font-size: 0.78rem; font-weight: 600; margin-bottom: 12px;
+    }
+
+    .save-indicator {
+        position: fixed; bottom: 72px; right: 24px;
+        background: var(--bg-card); border: 1px solid var(--border); color: var(--success);
+        padding: 8px 16px; border-radius: 40px; font-size: 0.85rem;
+        opacity: 0; transition: opacity 0.3s; z-index: 997; box-shadow: var(--shadow-sm);
+    }
+    .save-indicator.show { opacity: 1; }
+
+    .demographics-section.hidden, .questions-section.hidden { display: none; }
+
+    /* Progress bar */
+    .progress-container { margin-bottom: 20px; }
+    .progress-bar {
+        height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-bottom: 6px;
+    }
+    .progress-fill { height: 100%; background: var(--gradient); border-radius: 3px; transition: width 0.3s; }
+    .progress-text { font-size: 0.82rem; color: var(--text-muted); text-align: right; }
+
+    /* Question card */
+    .question-card { padding: 4px 0 16px; }
+    .question-card h2 { color: var(--text); margin: 12px 0 8px; font-size: 1.05rem; line-height: 1.5; }
+
+    /* Navigation */
+    .question-navigation { display: flex; gap: 10px; margin-top: 20px; }
+    .btn-prev, .btn-next {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 9px 20px; border-radius: var(--radius-sm);
+        font-weight: 600; font-size: 0.9rem; border: none; cursor: pointer;
+        font-family: inherit; transition: all 0.18s;
+    }
+    .btn-prev { background: var(--bg-input); color: var(--text-secondary); border: 1.5px solid var(--border); }
+    .btn-prev:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+    .btn-prev:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-next { background: var(--gradient); color: #fff; box-shadow: 0 2px 8px rgba(99,102,241,0.28); }
+    .btn-next:hover { opacity: 0.88; transform: translateY(-1px); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="questionnaire-container">
+    <div class="card">
+        <div class="questionnaire-header">
+            <h1><i class="fas fa-brain"></i> Психологическая анкета Routsol</h1>
+            <p class="questionnaire-subtitle">
+                Чтобы мы могли подбирать идеальные места для отдыха, нам нужно немного узнать о вас.
+                Анкета занимает 5-7 минут.
+            </p>
+        </div>
+
+        <!-- Индикатор сохранения -->
+        <div class="save-indicator" id="saveIndicator">
+            <i class="fas fa-check-circle"></i> Сохранено
+        </div>
+
+        <!-- Секция с демографическими данными (возраст, пол) -->
+        <div id="demographicsSection" class="demographics-section">
+            <div class="demographics-card">
+                <h2><i class="fas fa-user"></i> Немного о себе</h2>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="age">Ваш возраст</label>
+                        <input type="number" id="age" name="age" min="14" max="100" class="form-control" 
+                               placeholder="Например: 25" value="{{ saved_demographics.age if saved_demographics else '' }}">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Ваш пол</label>
+                        <div class="gender-options">
+                            <div class="gender-option">
+                                <input type="radio" name="gender" id="gender_male" value="male" 
+                                       {{ 'checked' if saved_demographics.gender == 'male' else '' }}>
+                                <label for="gender_male">👨 Мужской</label>
+                            </div>
+                            <div class="gender-option">
+                                <input type="radio" name="gender" id="gender_female" value="female"
+                                       {{ 'checked' if saved_demographics.gender == 'female' else '' }}>
+                                <label for="gender_female">👩 Женский</label>
+                            </div>
+                            <div class="gender-option">
+                                <input type="radio" name="gender" id="gender_unspecified" value="unspecified"
+                                       {{ 'checked' if not saved_demographics or saved_demographics.gender == 'unspecified' else '' }}>
+                                <label for="gender_unspecified">🤷 Не хочу указывать</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <button class="btn-start-questionnaire" id="startQuestionsBtn">
+                    <i class="fas fa-arrow-right"></i> Начать психологический тест
+                </button>
+            </div>
+        </div>
+
+        <!-- Секция с вопросами (изначально скрыта) -->
+        <div id="questionsSection" class="questions-section hidden">
+            <!-- Прогресс-бар -->
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="main-progress" style="width: 0%"></div>
+                </div>
+                <div class="progress-text">
+                    Вопрос <span id="current-question">1</span> из <span id="total-questions">18</span>
+                </div>
+            </div>
+
+            <!-- Контейнер для вопросов -->
+            <div id="questions-container"></div>
+
+            <!-- Кнопки навигации -->
+            <div class="question-navigation">
+                <button type="button" class="btn btn-prev" id="prevBtn" disabled>
+                    <i class="fas fa-arrow-left"></i> Назад
+                </button>
+                <button type="button" class="btn btn-next" id="nextBtn">
+                    Далее <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+
+            <!-- Кнопка отправки (появляется на последнем вопросе) -->
+            <div id="submitContainer" style="display: none; text-align: center; margin-top: 30px;">
+                <form method="POST" action="{{ url_for('submit_questionnaire') }}" id="questionnaireForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="age" id="submitAge">
+                    <input type="hidden" name="gender" id="submitGender">
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <i class="fas fa-check-circle"></i> Завершить анкету и получить профиль
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div id="questionnaire-data" 
+        data-questions='{{ questions | tojson }}'
+        data-answers='{{ saved_answers | tojson }}'
+        data-demographics='{{ saved_demographics | tojson }}'
+        style="display: none;">
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dataElement = document.getElementById('questionnaire-data');
+    let questions = [], savedAnswers = {}, savedDemographics = {};
+    try {
+        questions      = JSON.parse(dataElement.dataset.questions || '[]');
+        savedAnswers   = JSON.parse(dataElement.dataset.answers   || '{}');
+        savedDemographics = JSON.parse(dataElement.dataset.demographics || '{}');
+    } catch(e) { console.error('Parse error', e); }
+
+    // Обновляем счётчик вопросов
+    const totalSpan = document.getElementById('total-questions');
+    if (totalSpan) totalSpan.textContent = questions.length;
+
+    let currentIndex = 0;
+    let answers = {...savedAnswers};
+
+    // ── Демографика ────────────────────────────────────────────────────────────
+    function startQuestions() {
+        const age    = document.getElementById('age').value;
+        const gender = document.querySelector('input[name="gender"]:checked')?.value;
+        if (!age || age < 14 || age > 100) { alert('Укажите корректный возраст (14–100)'); return; }
+        if (!gender) { alert('Укажите ваш пол'); return; }
+        document.getElementById('submitAge').value   = age;
+        document.getElementById('submitGender').value = gender;
+        document.getElementById('demographicsSection').classList.add('hidden');
+        document.getElementById('questionsSection').classList.remove('hidden');
+        renderQuestion(currentIndex);
+        updateNavigation();
+        updateProgress();
+    }
+
+    document.getElementById('startQuestionsBtn')?.addEventListener('click', startQuestions);
+
+    // ── Рендер вопроса ─────────────────────────────────────────────────────────
+    const SCALE_ICONS = {
+        extraversion:'fa-users', openness:'fa-compass', sensation_seeking:'fa-bolt',
+        conscientiousness:'fa-calendar-check', proactivity:'fa-rocket',
+        neuroticism:'fa-leaf', restrictions:'fa-shield-alt'
+    };
+    const SCALE_NAMES = {
+        extraversion:'Экстраверсия', openness:'Открытость опыту',
+        sensation_seeking:'Поиск ощущений', conscientiousness:'Сознательность',
+        proactivity:'Проактивность', neuroticism:'Потребность в покое',
+        restrictions:'Ограничения'
+    };
+
+    function renderQuestion(index) {
+        const q = questions[index];
+        if (!q) return;
+        const container = document.getElementById('questions-container');
+        if (!container) return;
+
+        let optionsHtml = '';
+        for (let i = 1; i <= 5; i++) {
+            const label = (q.options && q.options[i]) ? q.options[i] : '';
+            const sel   = answers[q.id] == i ? 'selected' : '';
+            optionsHtml += `
+                <div class="likert-option ${sel}" onclick="selectOption(${q.id}, ${i})">
+                    <span class="number">${i}</span>
+                    <span class="label">${label}</span>
+                </div>`;
+        }
+
+        container.innerHTML = `
+            <div class="question-card">
+                <span class="scale-tag">
+                    <i class="fas ${SCALE_ICONS[q.scale] || 'fa-question'}"></i>
+                    ${SCALE_NAMES[q.scale] || q.scale}
+                </span>
+                <h2 style="color:var(--text); margin:12px 0 8px; font-size:1.05rem; line-height:1.5;">${q.text}</h2>
+                <div class="likert-scale">${optionsHtml}</div>
+                <div class="question-counter">Вопрос ${index + 1} из ${questions.length}</div>
+            </div>`;
+    }
+
+    // ── Выбор ответа ───────────────────────────────────────────────────────────
+    window.selectOption = function(questionId, value) {
+        answers[questionId] = value;
+        
+        // Показываем индикатор сохранения
+        const ind = document.getElementById('saveIndicator');
+        if (ind) {
+            ind.textContent = 'Сохранение...';
+            ind.classList.add('show');
+        }
+        
+        fetch('/api/save_answer', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('input[name="csrf_token"]')?.value
+            },
+            body: JSON.stringify({question_id: questionId, answer: value.toString()})
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'ok') {
+                console.log(`✅ Ответ сохранен: Q${questionId}=${value}, всего ответов: ${data.total_answers || '?'}`);
+                if (ind) {
+                    ind.textContent = 'Сохранено ✓';
+                    setTimeout(() => ind.classList.remove('show'), 1000);
+                }
+            } else {
+                throw new Error(data.message || 'Неизвестная ошибка');
+            }
+        })
+        .catch(error => {
+            console.error('❌ Ошибка сохранения ответа:', error);
+            if (ind) {
+                ind.textContent = 'Ошибка сохранения!';
+                ind.style.background = '#dc3545';
+                setTimeout(() => {
+                    ind.classList.remove('show');
+                    ind.style.background = '';
+                    ind.textContent = '';
+                }, 3000);
+            }
+            // Показываем уведомление пользователю
+            alert(`Ошибка сохранения ответа: ${error.message}\nПопробуйте еще раз или обновите страницу.`);
+        });
+        
+        renderQuestion(currentIndex);
+        updateProgress();
+    };
+
+    // ── Навигация ──────────────────────────────────────────────────────────────
+    function updateNavigation() {
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const submitContainer = document.getElementById('submitContainer');
+        if (prevBtn) prevBtn.disabled = currentIndex === 0;
+        const isLast = currentIndex === questions.length - 1;
+        if (nextBtn) nextBtn.style.display = isLast ? 'none' : 'inline-flex';
+        if (submitContainer) submitContainer.style.display = isLast ? 'block' : 'none';
+    }
+
+    function updateProgress() {
+        const pct = questions.length > 1 ? (currentIndex / (questions.length - 1)) * 100 : 0;
+        const fill = document.getElementById('main-progress');
+        const cur  = document.getElementById('current-question');
+        if (fill) fill.style.width = pct + '%';
+        if (cur)  cur.textContent  = currentIndex + 1;
+    }
+
+    document.getElementById('prevBtn')?.addEventListener('click', function() {
+        if (currentIndex > 0) { currentIndex--; renderQuestion(currentIndex); updateNavigation(); updateProgress(); }
+    });
+    document.getElementById('nextBtn')?.addEventListener('click', function() {
+        if (currentIndex < questions.length - 1) { currentIndex++; renderQuestion(currentIndex); updateNavigation(); updateProgress(); }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% block title %}Психологический профиль | Routsol Web{% endblock %}
+
+{% block head_extra %}
+<style>
+.profile-container { max-width: 720px; margin: 0 auto; }
+
+.profile-header { margin-bottom: 24px; }
+.profile-header h1 { font-size: 1.5rem; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+.profile-header p  { color: var(--text-secondary); font-size: 0.92rem; line-height: 1.5; }
+
+.profile-radar {
+    max-width: 380px;
+    margin: 0 auto 28px;
+}
+
+.profile-scales { display: flex; flex-direction: column; gap: 14px; }
+
+.scale-card {
+    background: var(--bg-input);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    border-left: 4px solid var(--border);
+}
+.scale-card.high   { border-left-color: var(--success); }
+.scale-card.medium { border-left-color: var(--accent); }
+.scale-card.low    { border-left-color: var(--primary); }
+
+.scale-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.scale-title {
+    font-size: 0.97rem;
+    font-weight: 600;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+.scale-title i { color: var(--primary); }
+.scale-score {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
+.scale-bar {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    margin: 6px 0 10px;
+    overflow: hidden;
+}
+.scale-fill {
+    height: 100%;
+    background: var(--gradient);
+    border-radius: 3px;
+    transition: width 0.6s ease;
+}
+
+.scale-interpretation {
+    font-size: 0.86rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+.scale-interpretation strong { color: var(--text); }
+
+.profile-footer {
+    text-align: center;
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+}
+.profile-footer p {
+    margin-top: 14px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="profile-container">
+    <div class="card">
+        <div class="profile-header">
+            <h1><i class="fas fa-brain" style="color:var(--primary);"></i> Ваш психологический профиль</h1>
+            <p>На основе ваших ответов мы построили многомерный профиль личности. Эти данные помогают подбирать идеальные места для отдыха.</p>
+        </div>
+
+        <div class="profile-radar">
+            <canvas id="radarChart"></canvas>
+        </div>
+
+        <div class="profile-scales">
+            {% for scale_name, scale_data in profile.items() %}
+            {% set width_percent = (scale_data['score'] / 15 * 100)|int %}
+            <div class="scale-card {{ scale_data['level'] }}">
+                <div class="scale-header">
+                    <div class="scale-title">
+                        {% if scale_name == 'extraversion' %}<i class="fas fa-users"></i> Экстраверсия
+                        {% elif scale_name == 'openness' %}<i class="fas fa-compass"></i> Открытость опыту
+                        {% elif scale_name == 'sensation_seeking' %}<i class="fas fa-bolt"></i> Поиск ощущений
+                        {% elif scale_name == 'conscientiousness' %}<i class="fas fa-calendar-check"></i> Сознательность
+                        {% elif scale_name == 'proactivity' %}<i class="fas fa-rocket"></i> Проактивность
+                        {% elif scale_name == 'neuroticism' %}<i class="fas fa-leaf"></i> Потребность в покое
+                        {% endif %}
+                    </div>
+                    <div class="scale-score">{{ scale_data['score'] }}/15</div>
+                </div>
+                <div class="scale-bar">
+                    <div class="scale-fill" style="width:{{ width_percent }}%"></div>
+                </div>
+                <div class="scale-interpretation">
+                    <strong>{{ scale_data['text'] }}</strong>
+                    {% if scale_data['level'] == 'high' %}
+                        {% if scale_name == 'extraversion' %} — Вам подходят социальные места, бары, групповые активности.
+                        {% elif scale_name == 'openness' %} — Ищите новые этно-кафе, арт-пространства, выставки.
+                        {% elif scale_name == 'sensation_seeking' %} — Квесты, экстрим-парки, ночные приключения для вас.
+                        {% elif scale_name == 'conscientiousness' %} — Вам важны плановые маршруты и кафе с понятным меню.
+                        {% elif scale_name == 'proactivity' %} — Вы сами организуете отдых и ищете новые места.
+                        {% elif scale_name == 'neuroticism' %} — При усталости выбирайте спа, тихие сады, уютные кафе.
+                        {% endif %}
+                    {% elif scale_data['level'] == 'low' %}
+                        {% if scale_name == 'extraversion' %} — Вам подойдут тихие парки, одиночные прогулки.
+                        {% elif scale_name == 'openness' %} — Доверяйте знакомым уютным местам.
+                        {% elif scale_name == 'sensation_seeking' %} — Выбирайте предсказуемые и спокойные активности.
+                        {% elif scale_name == 'conscientiousness' %} — Хороши спонтанные решения и гибкие планы.
+                        {% elif scale_name == 'proactivity' %} — Пользуйтесь готовыми гидами и пакетными предложениями.
+                        {% elif scale_name == 'neuroticism' %} — Вам подходят энергичные места даже при усталости.
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="profile-footer">
+            <a href="{{ url_for('ask_state') }}" class="btn btn-primary">
+                <i class="fas fa-magic"></i> Получить рекомендацию
+            </a>
+            <p>На основе этого профиля система подбирает персональные рекомендации.</p>
+        </div>
+
+        {% if profile.extraversion is defined %}
+        {% set r = current_user.psychological_profile %}
+        {% if r and (r.no_alcohol or r.low_budget or r.physical_limits) %}
+        <hr style="border:none; border-top:1px solid var(--border); margin:20px 0;">
+        <div class="section-title"><i class="fas fa-shield-alt"></i> Ваши ограничения учитываются</div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+            {% if r.no_alcohol %}
+            <span class="badge badge-primary"><i class="fas fa-wine-glass-alt"></i> Без алкоголя</span>
+            {% endif %}
+            {% if r.physical_limits %}
+            <span class="badge badge-primary"><i class="fas fa-wheelchair"></i> Физические ограничения</span>
+            {% endif %}
+            {% if r.low_budget %}
+            <span class="badge badge-primary"><i class="fas fa-wallet"></i> Ограниченный бюджет</span>
+            {% endif %}
+        </div>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+<div id="profile-chart-data"
+     data-extraversion="{{ profile.extraversion.score }}"
+     data-openness="{{ profile.openness.score }}"
+     data-sensation-seeking="{{ profile.sensation_seeking.score }}"
+     data-conscientiousness="{{ profile.conscientiousness.score }}"
+     data-proactivity="{{ profile.proactivity.score }}"
+     data-neuroticism="{{ profile.neuroticism.score }}"
+     style="display:none;"></div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const ctx = document.getElementById('radarChart');
+    if (!ctx) return;
+    const d = document.getElementById('profile-chart-data').dataset;
+
+    // Read CSS variables for theme-aware colors
+    const style = getComputedStyle(document.documentElement);
+    const primary = style.getPropertyValue('--primary').trim() || '#6366f1';
+    const textMuted = style.getPropertyValue('--text-muted').trim() || '#9ca3af';
+    const border = style.getPropertyValue('--border').trim() || '#e5e7eb';
+
+    new Chart(ctx, {
+        type: 'radar',
+        data: {
+            labels: ['Экстраверсия','Открытость','Поиск ощущений','Сознательность','Проактивность','Покой'],
+            datasets: [{
+                label: 'Ваш профиль',
+                data: [
+                    parseInt(d.extraversion) || 0,
+                    parseInt(d.openness) || 0,
+                    parseInt(d.sensationSeeking) || 0,
+                    parseInt(d.conscientiousness) || 0,
+                    parseInt(d.proactivity) || 0,
+                    parseInt(d.neuroticism) || 0
+                ],
+                backgroundColor: 'rgba(99,102,241,0.18)',
+                borderColor: primary,
+                borderWidth: 2,
+                pointBackgroundColor: primary,
+                pointRadius: 4
+            }]
+        },
+        options: {
+            scales: {
+                r: {
+                    min: 0, max: 15,
+                    ticks: { stepSize: 3, color: textMuted, backdropColor: 'transparent', font: { size: 10 } },
+                    grid: { color: border },
+                    angleLines: { color: border },
+                    pointLabels: { color: textMuted, font: { size: 11 } }
+                }
+            },
+            plugins: { legend: { display: false } }
+        }
+    });
+});
+</script>
+{% endblock %}

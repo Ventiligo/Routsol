@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+{% block title %}Социальное | Routsol Web{% endblock %}
+{% block content %}
+
+<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+    <h2 style="font-size:1.4rem; font-weight:700; color:var(--text);">
+        <i class="fas fa-users text-primary"></i> Социальное
+    </h2>
+    <a href="{{ url_for('social_users') }}" class="btn btn-primary btn-sm">
+        <i class="fas fa-user-plus"></i> Найти друзей
+    </a>
+</div>
+
+<div class="tabs">
+    <button class="tab-btn active" onclick="showTab('friends')">
+        <i class="fas fa-user-friends"></i> Друзья ({{ friends|length }})
+    </button>
+    <button class="tab-btn" onclick="showTab('requests')">
+        <i class="fas fa-user-clock"></i> Запросы
+        {% if pending_requests %}<span class="badge badge-pending" style="margin-left:4px;">{{ pending_requests|length }}</span>{% endif %}
+    </button>
+    <button class="tab-btn" onclick="showTab('invites')">
+        <i class="fas fa-paper-plane"></i> Приглашения
+        {% if incoming_invites %}<span class="badge badge-pending" style="margin-left:4px;">{{ incoming_invites|length }}</span>{% endif %}
+    </button>
+    <button class="tab-btn" onclick="showTab('history')">
+        <i class="fas fa-history"></i> История
+    </button>
+</div>
+
+<!-- Друзья -->
+<div id="tab-friends">
+    {% if friends %}
+    <div class="grid-auto">
+        {% for friend in friends %}
+        <a href="{{ url_for('social_profile', uid=friend.id) }}" style="text-decoration:none;">
+            <div class="user-card">
+                <div class="avatar">{{ friend.username[0].upper() }}</div>
+                <div style="flex:1; min-width:0; overflow:hidden;">
+                    <div class="username-text" style="font-weight:600; color:var(--text);">{{ friend.username }}</div>
+                    <div style="font-size:0.8rem; color:var(--text-muted);">
+                        {% if friend.psychological_profile %}
+                        <i class="fas fa-brain text-primary"></i> Профиль заполнен
+                        {% else %}Профиль не заполнен{% endif %}
+                    </div>
+                </div>
+                <i class="fas fa-chevron-right" style="color:var(--text-muted); font-size:0.75rem; flex-shrink:0;"></i>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-user-friends"></i>
+        <p>У вас пока нет друзей.<br><a href="{{ url_for('social_users') }}">Найдите людей</a> с похожими интересами!</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Запросы в друзья -->
+<div id="tab-requests" style="display:none;">
+    {% if pending_requests %}
+    <div style="display:flex; flex-direction:column; gap:10px;">
+        {% for req in pending_requests %}
+        <div class="user-card" id="req-{{ req.id }}">
+            <a href="{{ url_for('social_profile', uid=req.sender.id) }}" style="text-decoration:none; display:flex; align-items:center; gap:12px; flex:1; min-width:0; overflow:hidden;">
+                <div class="avatar">{{ req.sender.username[0].upper() }}</div>
+                <div style="flex:1; min-width:0; overflow:hidden;">
+                    <div class="username-text" style="font-weight:600; color:var(--text);">{{ req.sender.username }}</div>
+                    <div style="font-size:0.8rem; color:var(--text-muted);">хочет добавить вас в друзья</div>
+                </div>
+            </a>
+            <div style="display:flex; gap:8px; flex-shrink:0;">
+                <button class="btn btn-success btn-sm" onclick="respondRequest({{ req.id }}, 'accept')">
+                    <i class="fas fa-check"></i> Принять
+                </button>
+                <button class="btn btn-outline btn-sm" onclick="respondRequest({{ req.id }}, 'decline')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-user-clock"></i>
+        <p>Нет входящих запросов в друзья</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Invites tab -->
+<div id="tab-invites" style="display:none;">
+    {% if incoming_invites %}
+    <div style="display:flex; flex-direction:column; gap:10px;" id="invites-list">
+        {% for inv in incoming_invites %}
+        <div class="invite-card" id="inv-{{ inv.id }}">
+            <div class="invite-icon">
+                <i class="fas {{ inv.activity_icon or 'fa-star' }}"></i>
+            </div>
+            <div style="flex:1; min-width:0; overflow:hidden;">
+                <div class="username-text" style="font-weight:600; color:var(--text); margin-bottom:3px;">{{ inv.activity_name }}</div>
+                <div style="font-size:0.84rem; color:var(--text-secondary); margin-bottom:4px;">
+                    от <strong>{{ inv.sender.username }}</strong>
+                    {% if inv.message %} — {{ inv.message }}{% endif %}
+                </div>
+                <div style="font-size:0.76rem; color:var(--text-muted);">{{ inv.created_at.strftime('%d.%m в %H:%M') }}</div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end; flex-shrink:0;">
+                <button class="btn btn-success btn-sm"
+                    onclick="respondInvite({{ inv.id }}, 'accept', '{{ inv.sender.username }}', '{{ inv.activity_name|replace("'","") }}')">
+                    <i class="fas fa-check"></i> Принять
+                </button>
+                <button class="btn btn-outline btn-sm"
+                    onclick="respondInvite({{ inv.id }}, 'decline', '', '')">
+                    Отклонить
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Баннер после принятия -->
+    <div id="accept-banner" style="display:none;" class="accept-banner">
+        <div class="accept-banner__icon"><i class="fas fa-circle-check" style="font-size:2rem; color:var(--success);"></i></div>
+        <div class="accept-banner__body">
+            <div class="accept-banner__title" id="accept-banner-title"></div>
+            <div class="accept-banner__desc">Созвонитесь или напишите другу, чтобы договориться о встрече!</div>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-envelope-open"></i>
+        <p>Нет входящих приглашений</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- История приглашений -->
+<div id="tab-history" style="display:none;">
+    {% if invite_history %}
+    <div style="display:flex; flex-direction:column; gap:10px;">
+        {% for inv in invite_history %}
+        {% set is_sender = inv.sender_id == current_user_id %}
+        <div style="display:flex; align-items:center; gap:12px; padding:14px 16px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); opacity:{% if inv.status == 'declined' %}0.6{% else %}1{% endif %};">
+            <div style="width:40px; height:40px; border-radius:10px; background:var(--primary-light); color:var(--primary); display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0;">
+                <i class="fas {{ inv.activity_icon or 'fa-star' }}"></i>
+            </div>
+            <div style="flex:1; min-width:0;">
+                <div style="font-weight:600; color:var(--text); font-size:0.92rem; margin-bottom:2px;">{{ inv.activity_name }}</div>
+                <div style="font-size:0.8rem; color:var(--text-secondary);">
+                    {% if is_sender %}
+                        Вы → <strong>{{ inv.receiver.username }}</strong>
+                    {% else %}
+                        <strong>{{ inv.sender.username }}</strong> → Вам
+                    {% endif %}
+                    {% if inv.message %} · {{ inv.message }}{% endif %}
+                </div>
+                <div style="font-size:0.74rem; color:var(--text-muted); margin-top:2px;">{{ inv.created_at.strftime('%d.%m.%Y в %H:%M') }}</div>
+            </div>
+            <div style="flex-shrink:0;">
+                {% if inv.status == 'accepted' %}
+                <span class="badge badge-accepted"><i class="fas fa-check"></i> Принято</span>
+                {% elif inv.status == 'declined' %}
+                <span class="badge badge-declined"><i class="fas fa-times"></i> Отклонено</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-history"></i>
+        <p>История приглашений пуста</p>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}
+{% block scripts %}
+<style>
+.accept-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    background: rgba(16,185,129,0.1);
+    border: 1.5px solid rgba(16,185,129,0.3);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-top: 8px;
+    animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+.accept-banner__icon { font-size: 2.2rem; flex-shrink: 0; }
+.accept-banner__title { font-weight: 700; color: var(--success); font-size: 1rem; margin-bottom: 5px; }
+.accept-banner__desc  { font-size: 0.88rem; color: var(--text-secondary); line-height: 1.5; }
+</style>
+<script>
+function showTab(name) {
+    ['friends','requests','invites','history'].forEach(t => {
+        document.getElementById('tab-'+t).style.display = t === name ? '' : 'none';
+    });
+    document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+        btn.classList.toggle('active', ['friends','requests','invites','history'][i] === name);
+    });
+}
+function respondRequest(id, action) {
+    fetch('/social/friend_request/'+id+'/respond', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({action})
+    }).then(r => r.json()).then(() => {
+        const el = document.getElementById('req-'+id);
+        if (el) el.innerHTML = '<div style="color:var(--text-muted);padding:8px;font-size:0.88rem;">'
+            + (action==='accept' ? '<i class="fas fa-check-circle text-success"></i> Запрос принят'
+                                 : '<i class="fas fa-times-circle text-danger"></i> Запрос отклонён') + '</div>';
+    });
+}
+function respondInvite(id, action, senderName, activityName) {
+    fetch('/social/invite/'+id+'/respond', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({action})
+    }).then(r => r.json()).then(() => {
+        const card = document.getElementById('inv-'+id);
+        if (card) card.style.display = 'none';
+
+        if (action === 'accept') {
+            const banner = document.getElementById('accept-banner');
+            const title  = document.getElementById('accept-banner-title');
+            if (banner && title) {
+                title.textContent = '✅ Вы приняли приглашение от ' + senderName + ' — «' + activityName + '»';
+                banner.style.display = 'flex';
+                banner.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+            }
+        }
+
+        // Добавляем запись в историю без перезагрузки
+        const histList = document.querySelector('#tab-history > div');
+        if (histList) {
+            const statusHtml = action === 'accept'
+                ? '<span class="badge badge-accepted"><i class="fas fa-check"></i> Принято</span>'
+                : '<span class="badge badge-declined"><i class="fas fa-times"></i> Отклонено</span>';
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('ru-RU') + ' в ' + now.toLocaleTimeString('ru-RU', {hour:'2-digit',minute:'2-digit'});
+            const item = document.createElement('div');
+            item.style.cssText = 'display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);';
+            item.innerHTML = `
+                <div style="width:40px;height:40px;border-radius:10px;background:var(--primary-light);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">
+                    <i class="fas fa-star"></i>
+                </div>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:600;color:var(--text);font-size:0.92rem;margin-bottom:2px;">${activityName}</div>
+                    <div style="font-size:0.8rem;color:var(--text-secondary);"><strong>${senderName}</strong> → Вам</div>
+                    <div style="font-size:0.74rem;color:var(--text-muted);margin-top:2px;">${dateStr}</div>
+                </div>
+                <div style="flex-shrink:0;">${statusHtml}</div>`;
+            histList.prepend(item);
+        }
+    });
+}
+</script>
+{% endblock %}

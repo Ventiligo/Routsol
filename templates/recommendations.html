@@ -1,0 +1,536 @@
+{% extends "base.html" %}
+{% block title %}Ваши рекомендации | Routsol Web{% endblock %}
+
+{% from '_macros.html' import place_icon, activity_icon, mood_icon, fatigue_icon, tod_icon %}
+
+{% block head_extra %}
+<!-- Debug: yandex_maps_key = "{{ yandex_maps_key }}" -->
+{% if yandex_maps_key %}
+<script src="https://api-maps.yandex.ru/2.1/?apikey={{ yandex_maps_key }}&lang=ru_RU" type="text/javascript"></script>
+{% else %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+{% endif %}
+<style>
+.rec-container { max-width: 860px; margin: 0 auto; }
+
+.rec-title { font-size: 1.4rem; font-weight: 800; color: var(--text); margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+.rec-title i { color: var(--primary); }
+
+/* State summary */
+.state-summary {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.state-summary-label { font-size: 0.84rem; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+.state-badges { display: flex; gap: 8px; flex-wrap: wrap; }
+.badge-fatigue  { background: var(--primary-light); color: var(--primary); }
+.badge-mood     { background: rgba(139,92,246,0.12); color: var(--purple); }
+.badge-company  { background: rgba(16,185,129,0.12); color: var(--success); }
+.badge-weather  { background: rgba(245,158,11,0.12); color: var(--accent); }
+.badge-time     { background: rgba(99,102,241,0.1); color: var(--primary); }
+
+/* Section headings */
+.section-h { font-size: 1.05rem; font-weight: 700; color: var(--text); margin-bottom: 14px; display: flex; align-items: center; gap: 7px; }
+.section-h i { color: var(--primary); }
+
+/* Stay home banner */
+.stay-home-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    background: rgba(245,158,11,0.1);
+    border: 1.5px solid rgba(245,158,11,0.3);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 24px;
+}
+.stay-home-icon { font-size: 2.8rem; flex-shrink: 0; line-height: 1; }
+.stay-home-title { font-size: 1.05rem; font-weight: 700; color: var(--accent); margin-bottom: 5px; }
+.stay-home-desc  { font-size: 0.88rem; color: var(--text-secondary); line-height: 1.5; }
+
+/* Map */
+#map {
+    height: 380px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    margin-bottom: 24px;
+}
+
+/* Place cards */
+.place-card-link { text-decoration: none; color: inherit; display: block; }
+.place-card {
+    background: var(--bg-card);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 12px;
+    transition: all 0.18s;
+}
+.place-card:hover {
+    border-color: var(--primary);
+    box-shadow: var(--shadow);
+    transform: translateY(-2px);
+}
+.place-header { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+.place-icon { font-size: 2.2rem; flex-shrink: 0; }
+.place-info { flex: 1; min-width: 0; }
+.place-info h3 { margin: 0 0 3px; font-size: 1rem; font-weight: 700; color: var(--text); }
+.place-type { margin: 0; color: var(--text-muted); font-size: 0.82rem; text-transform: capitalize; }
+.match-score { margin-top: 4px; color: var(--accent); font-weight: 600; font-size: 0.84rem; }
+.match-score i { margin-right: 4px; }
+.place-distance { font-weight: 700; color: var(--primary); font-size: 0.95rem; white-space: nowrap; flex-shrink: 0; }
+
+.rec-explanation {
+    background: var(--primary-light);
+    border-left: 3px solid var(--primary);
+    padding: 10px 13px;
+    margin-bottom: 12px;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    font-size: 0.86rem;
+    color: var(--text-secondary);
+}
+.rec-explanation i { color: var(--accent); margin-right: 6px; }
+
+.place-attributes { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 10px; }
+.attr-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+}
+.attr-badge i { margin-right: 4px; }
+
+/* Attr colors — readable in both themes */
+.attr-quiet, .attr-relaxing { background: rgba(16,185,129,0.12); color: var(--success); border-color: rgba(16,185,129,0.2); }
+.attr-noisy, .attr-energetic { background: rgba(239,68,68,0.1); color: var(--danger); border-color: rgba(239,68,68,0.15); }
+.attr-active   { background: rgba(245,158,11,0.12); color: var(--accent); border-color: rgba(245,158,11,0.2); }
+.attr-passive  { background: var(--bg-input); color: var(--text-muted); }
+.attr-moderate { background: rgba(129,140,248,0.12); color: var(--primary); border-color: rgba(129,140,248,0.2); }
+.attr-low      { background: rgba(16,185,129,0.1); color: var(--success); border-color: rgba(16,185,129,0.15); }
+.attr-medium   { background: rgba(245,158,11,0.1); color: var(--accent); border-color: rgba(245,158,11,0.15); }
+.attr-high     { background: rgba(239,68,68,0.1); color: var(--danger); border-color: rgba(239,68,68,0.15); }
+.attr-small    { background: rgba(99,102,241,0.1); color: var(--primary); border-color: rgba(99,102,241,0.15); }
+.attr-large    { background: rgba(139,92,246,0.1); color: var(--purple); border-color: rgba(139,92,246,0.15); }
+
+.place-address { color: var(--text-muted); font-size: 0.82rem; margin: 0; }
+.place-address i { margin-right: 4px; }
+
+/* Empty */
+.coming-soon { text-align: center; padding: 56px 20px; }
+.coming-soon i { font-size: 4rem; color: var(--text-muted); opacity: 0.3; margin-bottom: 16px; display: block; }
+.coming-soon h2 { color: var(--text-secondary); margin-bottom: 6px; }
+.coming-soon p  { color: var(--text-muted); }
+
+/* Home activities */
+.home-activities-section {
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+}
+.section-desc { color: var(--text-muted); font-size: 0.88rem; margin-bottom: 16px; }
+
+.home-activities-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+}
+.home-activity-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: var(--bg-input);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    transition: all 0.18s;
+}
+.home-activity-card:hover {
+    border-color: var(--primary);
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-2px);
+}
+.ha-icon { font-size: 2rem; flex-shrink: 0; }
+.ha-body { flex: 1; min-width: 0; }
+.ha-body h3 { margin: 0 0 4px; font-size: 0.93rem; font-weight: 700; color: var(--text); }
+.ha-body p  { margin: 0 0 6px; font-size: 0.82rem; color: var(--text-secondary); line-height: 1.4; }
+.ha-company { font-size: 0.75rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+.ha-score { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+.ha-score-value { font-size: 1rem; font-weight: 700; color: var(--primary); }
+.ha-score-label { font-size: 0.68rem; color: var(--text-muted); }
+
+.ha-share-btn {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    padding: 4px 9px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.18s;
+    font-family: inherit;
+    font-weight: 500;
+}
+.ha-share-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+.home-activity-card { position: relative; padding-bottom: 36px; }
+
+/* Actions */
+.rec-actions { display: flex; gap: 12px; margin-top: 28px; justify-content: center; flex-wrap: wrap; }
+
+/* Share modal */
+.share-modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+}
+.share-modal-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: var(--shadow-lg);
+}
+.share-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+.share-modal-title { font-size: 1rem; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 7px; }
+.share-modal-close { background: none; border: none; font-size: 1.1rem; cursor: pointer; color: var(--text-muted); padding: 4px; }
+.share-modal-close:hover { color: var(--text); }
+.share-activity-name {
+    background: var(--bg-input);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    margin-bottom: 14px;
+    font-weight: 600;
+    color: var(--text);
+    font-size: 0.9rem;
+}
+.share-status { margin-top: 10px; font-size: 0.86rem; color: var(--success); display: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rec-container">
+<div class="card">
+    <h1 class="rec-title"><i class="fas fa-map-marked-alt"></i> Ваши персональные рекомендации</h1>
+
+    <!-- State summary -->
+    <div class="state-summary">
+        <span class="state-summary-label">Сейчас:</span>
+        <div class="state-badges">
+            {% if state.weather_icon and state.weather_desc %}
+            <span class="badge badge-weather">
+                {{ state.weather_icon }}
+                {{ state.weather_desc }}
+                {% if state.weather_temp is not none %}{{ state.weather_temp|round(1) }}°C{% endif %}
+            </span>
+            {% endif %}
+            {% set tod_labels = {'morning':'Утро','afternoon':'День','evening':'Вечер','night':'Ночь'} %}
+            {% if state.time_of_day %}
+            <span class="badge badge-time">{{ tod_icon(state.time_of_day) }} {{ tod_labels.get(state.time_of_day, state.time_of_day) }}</span>
+            {% endif %}
+            <span class="badge badge-fatigue">
+                {{ fatigue_icon(state.fatigue_level) }}
+                {% if state.fatigue_level == 'high' %}Устал{% elif state.fatigue_level == 'medium' %}Умеренно{% else %}Бодр{% endif %}
+            </span>
+            {% if state.mood and state.mood != 'skip' %}
+            {% set mood_labels = {'happy':'Радостное','excited':'Воодушевлённое','calm':'Спокойное','thoughtful':'Задумчивое','sad':'Грустное','anxious':'Тревожное','angry':'Раздражённое','bored':'Скучающее','adventurous':'Игривое','tired':'Уставшее'} %}
+            <span class="badge badge-mood">{{ mood_icon(state.mood) }} {{ mood_labels.get(state.mood, state.mood) }}</span>
+            {% endif %}
+            {% if state.with_company and state.with_company != 'skip' %}
+            {% set comp_labels = {'alone':'Один','partner':'С партнёром','friends':'С друзьями','family':'С семьёй'} %}
+            <span class="badge badge-company"><i class="fas fa-users"></i> {{ comp_labels.get(state.with_company, state.with_company) }}</span>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if stay_home %}
+    <!-- Stay home banner -->
+    <div class="stay-home-banner">
+        <div class="stay-home-icon">
+            {% if state.weather_code and state.weather_code >= 51 %}
+            <i class="fas fa-cloud-rain" style="font-size:2rem; color:var(--primary);"></i>
+            {% else %}
+            <i class="fas fa-house" style="font-size:2rem; color:var(--accent);"></i>
+            {% endif %}
+        </div>
+        <div class="stay-home-body">
+            <div class="stay-home-title">Сегодня лучше остаться дома</div>
+            <div class="stay-home-desc">
+                Вы сильно устали — выходить не лучшая идея.
+                {% if state.weather_desc and state.weather_code and state.weather_code >= 51 %}
+                К тому же на улице {{ state.weather_desc|lower }}
+                {% if state.weather_temp is not none %} ({{ state.weather_temp|round(1) }}°C){% endif %}.
+                {% endif %}
+                Мы подобрали активности, которые помогут восстановиться прямо дома.
+            </div>
+        </div>
+    </div>
+    {% else %}
+
+    {% if places %}
+    <div class="section-h"><i class="fas fa-map"></i> Топ-5 мест рядом с вами</div>
+    <div id="map"></div>
+    <div class="section-h"><i class="fas fa-list"></i> Лучшие места: {{ places|length }}</div>
+
+    {% for place in places %}
+    <a href="{{ url_for('place_detail', place_id=place.id) }}" class="place-card-link">
+        <div class="place-card">
+            <div class="place-header">
+                <div class="place-icon">{{ place_icon(place.place_type) }}</div>
+                <div class="place-info">
+                    <h3>{{ place.name }}</h3>
+                    <p class="place-type">{{ place.place_type }}</p>
+                    {% if place.match_score %}
+                    <div class="match-score"><i class="fas fa-star"></i> Соответствие: {{ place.match_score|round|int }}/100</div>
+                    {% endif %}
+                </div>
+                <div class="place-distance"><i class="fas fa-walking"></i> {{ (place.distance / 1000)|round(1) }} км</div>
+            </div>
+            {% if place.explanation %}
+            <div class="rec-explanation"><i class="fas fa-lightbulb"></i> {{ place.explanation }}</div>
+            {% endif %}
+            <div class="place-attributes">
+                {% if place.atmosphere %}<span class="attr-badge attr-{{ place.atmosphere }}"><i class="fas fa-music"></i>{{ place.atmosphere }}</span>{% endif %}
+                {% if place.activity_level %}<span class="attr-badge attr-{{ place.activity_level }}"><i class="fas fa-bolt"></i>{{ place.activity_level }}</span>{% endif %}
+                {% if place.avg_price %}<span class="attr-badge attr-{{ place.avg_price }}"><i class="fas fa-ruble-sign"></i>{{ place.avg_price }}</span>{% endif %}
+                {% if place.capacity %}<span class="attr-badge attr-{{ place.capacity }}"><i class="fas fa-users"></i>{{ place.capacity }}</span>{% endif %}
+            </div>
+            {% if place.address %}
+            <p class="place-address"><i class="fas fa-map-marker-alt"></i> {{ place.address[:100] }}</p>
+            {% endif %}
+            <div style="display: flex; gap: 8px; margin-top: 8px;">
+                {% if place.latitude and place.longitude %}
+                <a href="https://yandex.ru/maps/?pt={{ place.longitude }},{{ place.latitude }}&z=16&l=map" 
+                   target="_blank" 
+                   class="btn btn-outline btn-sm" 
+                   style="flex: 1;"
+                   onclick="event.stopPropagation();">
+                    <i class="fas fa-map-marked-alt"></i> Открыть на карте
+                </a>
+                {% endif %}
+                {% if current_user %}
+                <button class="btn btn-ghost btn-sm" 
+                    style="flex: 1;"
+                    onclick="event.preventDefault(); event.stopPropagation(); openShareModal('place_{{ place.id }}','{{ place.name|replace("'","") }}','{{ place.place_type }} · {{ (place.distance/1000)|round(1) }} км','fa-map-marker-alt','place')">
+                    <i class="fas fa-user-plus"></i> Позвать друга
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </a>
+    {% endfor %}
+
+    {% else %}
+    <div class="coming-soon">
+        <i class="fas fa-search"></i>
+        <h2>Места не найдены</h2>
+        <p>Попробуйте выбрать другое местоположение или увеличить радиус поиска.</p>
+    </div>
+    {% endif %}
+
+    {% endif %}{# end stay_home #}
+
+    {% if home_activities %}
+    <div class="home-activities-section">
+        <div class="section-h"><i class="fas fa-home"></i> Домашний отдых для вас</div>
+        <p class="section-desc">Не хочется никуда идти? Вот что подойдёт именно вам прямо сейчас:</p>
+        <div class="home-activities-grid">
+            {% for act in home_activities %}
+            <a href="{{ url_for('home_activity_detail', activity_id=act.id) }}" class="place-card-link">
+                <div class="home-activity-card">
+                    <div class="ha-icon">{{ activity_icon(act.id) }}</div>
+                    <div class="ha-body">
+                        <h3>{{ act.title }}</h3>
+                        <p>{{ act.description }}</p>
+                        <div class="ha-company">
+                            {% if act.company == 'alone' %}<i class="fas fa-user"></i> Одиночная
+                            {% elif act.company == 'partner' %}<i class="fas fa-heart"></i> С партнёром
+                            {% elif act.company == 'friends' %}<i class="fas fa-user-friends"></i> С друзьями
+                            {% elif act.company == 'family' %}<i class="fas fa-home"></i> С семьёй
+                            {% elif act.company == 'any' %}<i class="fas fa-users"></i> Любая компания
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="ha-score">
+                        <span class="ha-score-value">{{ act.score|round|int }}%</span>
+                        <span class="ha-score-label">совпадение</span>
+                    </div>
+                    {% if current_user %}
+                    <button class="ha-share-btn"
+                        onclick="event.preventDefault(); openShareModal('{{ act.id }}','{{ act.title }}','{{ act.description[:80]|replace("'","") }}','fa-star','home_activity')">
+                        <i class="fas fa-share-alt"></i> Поделиться
+                    </button>
+                    {% endif %}
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="rec-actions">
+        <a href="{{ url_for('ask_state') }}" class="btn btn-primary">
+            <i class="fas fa-redo"></i> Изменить состояние
+        </a>
+        <a href="{{ url_for('index') }}" class="btn btn-outline">
+            <i class="fas fa-home"></i> На главную
+        </a>
+    </div>
+</div>
+</div>
+
+{% if current_user %}
+<div class="share-modal-overlay" id="shareModal">
+    <div class="share-modal-box">
+        <div class="share-modal-header">
+            <div class="share-modal-title"><i class="fas fa-user-plus text-primary"></i> Позвать друга</div>
+            <button class="share-modal-close" onclick="closeShareModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="share-activity-name" id="shareActivityName"></div>
+        <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:14px;" id="shareActivityDesc"></div>
+        <div class="form-group">
+            <label class="form-label">Кого позвать?</label>
+            <select id="shareFriendSelect" class="form-control">
+                <option value="">— выберите друга —</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Сообщение (необязательно)</label>
+            <input type="text" id="shareMessage" class="form-control" placeholder="Пойдём вместе прямо сейчас?">
+        </div>
+        <div style="display:flex; gap:10px; margin-top:4px;">
+            <button class="btn btn-primary" onclick="submitShare()" style="flex:1;">
+                <i class="fas fa-paper-plane"></i> Отправить приглашение
+            </button>
+            <button class="btn btn-outline" onclick="closeShareModal()">Отмена</button>
+        </div>
+        <div class="share-status" id="shareStatus">
+            <i class="fas fa-check-circle"></i> Приглашение отправлено!
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+{% if places and state and not stay_home %}
+const userLat = {{ state.latitude }};
+const userLng = {{ state.longitude }};
+const placesData = [
+    {% for place in places %}
+    {lat:{{ place.latitude }},lng:{{ place.longitude }},name:"{{ place.name|replace('"','&quot;') }}",type:"{{ place.place_type }}",dist:"{{ (place.distance/1000)|round(1) }} км"}{% if not loop.last %},{% endif %}
+    {% endfor %}
+];
+
+{% if yandex_maps_key %}
+ymaps.ready(function() {
+    const map = new ymaps.Map('map', {
+        center: [userLat, userLng], zoom: 13,
+        controls: ['zoomControl', 'fullscreenControl']
+    });
+    map.geoObjects.add(new ymaps.Placemark([userLat, userLng],
+        {balloonContent: '<b>Вы здесь</b>'},
+        {preset: 'islands#redDotIcon'}
+    ));
+    placesData.forEach(function(p) {
+        map.geoObjects.add(new ymaps.Placemark([p.lat, p.lng],
+            {balloonContentHeader: p.name, balloonContentBody: p.type + ' · ' + p.dist},
+            {preset: 'islands#violetDotIcon'}
+        ));
+    });
+});
+{% else %}
+const mapEl = document.getElementById('map');
+if (mapEl) {
+    const map = L.map('map').setView([userLat, userLng], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors', maxZoom: 19
+    }).addTo(map);
+    const userIcon = L.icon({
+        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+        iconSize:[25,41], iconAnchor:[12,41], popupAnchor:[1,-34], shadowSize:[41,41]
+    });
+    L.marker([userLat, userLng], {icon: userIcon}).addTo(map).bindPopup('<b>Вы здесь</b>').openPopup();
+    placesData.forEach(function(p) {
+        L.marker([p.lat, p.lng]).addTo(map).bindPopup('<b>'+p.name+'</b><br>'+p.type+'<br>'+p.dist);
+    });
+}
+{% endif %}
+{% endif %}
+</script>
+
+{% if current_user %}
+<script>
+let _shareData = {};
+
+function openShareModal(actId, actName, actDesc, actIcon, actType) {
+    _shareData = {id: actId, name: actName, desc: actDesc, icon: actIcon, type: actType};
+    document.getElementById('shareActivityName').textContent = actName;
+    const descEl = document.getElementById('shareActivityDesc');
+    if (descEl) descEl.textContent = actDesc || '';
+    document.getElementById('shareStatus').style.display = 'none';
+    document.getElementById('shareMessage').value = '';
+    loadFriends();
+    document.getElementById('shareModal').style.display = 'flex';
+}
+function closeShareModal() {
+    document.getElementById('shareModal').style.display = 'none';
+}
+function loadFriends() {
+    fetch('/api/friends').then(r => r.json()).then(data => {
+        const sel = document.getElementById('shareFriendSelect');
+        sel.innerHTML = '<option value="">— выберите друга —</option>';
+        (data.friends || []).forEach(f => {
+            sel.innerHTML += `<option value="${f.id}">${f.username}</option>`;
+        });
+    }).catch(() => {});
+}
+function submitShare() {
+    const rid = document.getElementById('shareFriendSelect').value;
+    if (!rid) { alert('Выберите друга'); return; }
+    fetch('/social/invite', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            receiver_id: parseInt(rid),
+            activity_type: _shareData.type,
+            activity_id: _shareData.id,
+            activity_name: _shareData.name,
+            activity_description: _shareData.desc,
+            activity_icon: _shareData.icon,
+            message: document.getElementById('shareMessage').value
+        })
+    }).then(r => r.json()).then(() => {
+        document.getElementById('shareStatus').style.display = 'block';
+        setTimeout(closeShareModal, 1500);
+    });
+}
+</script>
+{% endif %}
+{% endblock %}

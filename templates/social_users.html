@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Поиск людей | Routsol Web{% endblock %}
+{% block content %}
+<div style="margin-bottom:24px;">
+    <h2 style="font-size:1.5rem; font-weight:700; margin-bottom:16px;">
+        <i class="fas fa-search" style="color:var(--primary);"></i> Найти людей
+    </h2>
+    <form method="get" action="{{ url_for('social_users') }}">
+        <div class="search-box" style="max-width:480px;">
+            <i class="fas fa-search"></i>
+            <input type="text" name="q" value="{{ query }}" placeholder="Введите имя пользователя..."
+                   class="form-control" autofocus>
+        </div>
+    </form>
+</div>
+
+{% if query %}
+    {% if users %}
+    <div class="grid-auto">
+        {% for u in users %}
+        <div class="user-card" id="user-{{ u.id }}">
+            <a href="{{ url_for('social_profile', uid=u.id) }}" style="text-decoration:none; display:flex; align-items:center; gap:12px; flex:1; min-width:0; overflow:hidden;">
+                <div class="avatar">{{ u.username[0].upper() }}</div>
+                <div style="flex:1; min-width:0; overflow:hidden;">
+                    <div class="username-text" style="font-weight:600; color:var(--text);">{{ u.username }}</div>
+                    <div style="font-size:0.82rem; color:var(--text-muted);">
+                        {% if u.psychological_profile %}<i class="fas fa-brain" style="color:var(--primary);"></i> Профиль заполнен{% endif %}
+                    </div>
+                </div>
+            </a>
+            <div id="action-{{ u.id }}" style="flex-shrink:0;">
+                <button class="btn btn-ghost btn-sm" onclick="sendRequest({{ u.id }})">
+                    <i class="fas fa-user-plus"></i> Добавить
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-user-slash"></i>
+        <p>Пользователи с именем "{{ query }}" не найдены</p>
+    </div>
+    {% endif %}
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-users"></i>
+    <p>Введите имя пользователя для поиска</p>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+function sendRequest(uid) {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
+    fetch(`/social/friend_request/${uid}`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken
+        }
+    })
+        .then(r => r.json())
+        .then(data => {
+            const el = document.getElementById('action-'+uid);
+            if (el) el.innerHTML = '<span class="badge badge-pending"><i class="fas fa-clock"></i> Запрос отправлен</span>';
+        });
+}
+</script>
+{% endblock %}

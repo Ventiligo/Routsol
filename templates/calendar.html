@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Календарь | Routsol Web{% endblock %}
+
+{% block head_extra %}
+<style>
+.cal-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 20px;
+    align-items: start;
+}
+@media (max-width: 800px) {
+    .cal-layout { grid-template-columns: 1fr; }
+}
+.page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.page-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.cal-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+.cal-month-title {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--text);
+}
+.meeting-title {
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.9rem;
+}
+.meeting-meta {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2 class="page-title">
+        <i class="fas fa-calendar-alt text-primary"></i> Мой календарь
+    </h2>
+    <a href="{{ url_for('new_meeting') }}" class="btn btn-primary btn-sm">
+        <i class="fas fa-plus"></i> Новая встреча
+    </a>
+</div>
+
+<div class="cal-layout">
+    <div class="card">
+        <div class="cal-nav">
+            <button class="btn btn-outline btn-sm" id="prevMonth"><i class="fas fa-chevron-left"></i></button>
+            <span class="cal-month-title" id="calTitle"></span>
+            <button class="btn btn-outline btn-sm" id="nextMonth"><i class="fas fa-chevron-right"></i></button>
+        </div>
+        <div class="calendar-grid" id="calGrid"></div>
+    </div>
+
+    <div>
+        <div class="section-title"><i class="fas fa-list"></i> Все встречи</div>
+        {% if meetings %}
+            {% for m in meetings %}
+            <a href="{{ url_for('meeting_detail', meeting_id=m.id) }}" style="text-decoration:none; display:block;">
+                <div class="meeting-card">
+                    <div class="meeting-date-badge">
+                        <div class="day">{{ m.scheduled_at.strftime('%d') }}</div>
+                        <div class="month">{{ m.scheduled_at.strftime('%b') }}</div>
+                    </div>
+                    <div style="flex:1; min-width:0;">
+                        <div class="meeting-title">
+                            {% if m.activity_icon %}<i class="fas {{ m.activity_icon }} text-primary"></i>{% endif %}
+                            {{ m.title }}
+                        </div>
+                        <div class="meeting-meta">
+                            <i class="fas fa-clock"></i> {{ m.scheduled_at.strftime('%H:%M') }}
+                            {% if m.location %} · <i class="fas fa-map-marker-alt"></i> {{ m.location[:28] }}{% endif %}
+                        </div>
+                        <div style="margin-top:5px;">
+                            {% if m.status == 'planned' %}<span class="badge badge-primary">Запланировано</span>
+                            {% elif m.status == 'done' %}<span class="badge badge-accepted">Прошло</span>
+                            {% elif m.status == 'cancelled' %}<span class="badge badge-declined">Отменено</span>{% endif %}
+                        </div>
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-calendar-times"></i>
+            <p>Нет запланированных встреч.<br>
+            <a href="{{ url_for('new_meeting') }}">Создайте первую!</a></p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const meetingDates = {{ meeting_dates_json }};
+let current = new Date();
+const months = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const days = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+
+function renderCalendar(year, month) {
+    document.getElementById('calTitle').textContent = months[month] + ' ' + year;
+    const grid = document.getElementById('calGrid');
+    grid.innerHTML = '';
+    days.forEach(d => {
+        const h = document.createElement('div');
+        h.className = 'cal-header-day';
+        h.textContent = d;
+        grid.appendChild(h);
+    });
+    let startDay = new Date(year, month, 1).getDay() - 1;
+    if (startDay < 0) startDay = 6;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const today = new Date();
+
+    for (let i = 0; i < startDay; i++) {
+        const el = document.createElement('div');
+        el.className = 'cal-day other-month';
+        el.textContent = new Date(year, month, -startDay + i + 1).getDate();
+        grid.appendChild(el);
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+        const el = document.createElement('div');
+        el.className = 'cal-day';
+        el.textContent = d;
+        const dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+        if (meetingDates.includes(dateStr)) el.classList.add('has-event');
+        if (d === today.getDate() && month === today.getMonth() && year === today.getFullYear())
+            el.classList.add('today');
+        grid.appendChild(el);
+    }
+}
+
+renderCalendar(current.getFullYear(), current.getMonth());
+document.getElementById('prevMonth').onclick = () => { current.setMonth(current.getMonth() - 1); renderCalendar(current.getFullYear(), current.getMonth()); };
+document.getElementById('nextMonth').onclick = () => { current.setMonth(current.getMonth() + 1); renderCalendar(current.getFullYear(), current.getMonth()); };
+</script>
+{% endblock %}

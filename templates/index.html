@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block title %}Главная | Routsol Web{% endblock %}
+
+{% block head_extra %}
+<style>
+.hero {
+    text-align: center;
+    padding: 36px 0 28px;
+}
+.hero__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 68px; height: 68px;
+    background: var(--gradient);
+    border-radius: 20px;
+    font-size: 1.9rem;
+    color: #fff;
+    margin-bottom: 18px;
+    box-shadow: 0 8px 24px rgba(99,102,241,0.32);
+}
+.hero__title {
+    font-size: 1.85rem;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 10px;
+    line-height: 1.2;
+}
+.hero__sub {
+    color: var(--text-secondary);
+    font-size: 1rem;
+    max-width: 480px;
+    margin: 0 auto;
+    line-height: 1.6;
+}
+
+.actions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
+    margin-bottom: 28px;
+}
+
+.how-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px 24px;
+}
+.how-card__label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 18px;
+}
+.how-steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+}
+.how-step {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+}
+.how-step__num {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--primary-light);
+    color: var(--primary);
+    font-weight: 700;
+    font-size: 0.8rem;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+.how-step__title {
+    font-weight: 600;
+    color: var(--text);
+    font-size: 0.88rem;
+    margin-bottom: 2px;
+}
+.how-step__desc {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="hero">
+    <div class="hero__icon"><i class="fas fa-compass"></i></div>
+    <h1 class="hero__title">Найди свой идеальный отдых</h1>
+    <p class="hero__sub">Routsol подбирает места и активности под твой психологический профиль и текущее настроение.</p>
+</div>
+
+<div class="actions-grid">
+
+{% if not current_user %}
+
+    <a href="{{ url_for('register') }}" class="action-card action-card--primary">
+        <div class="action-card__icon"><i class="fas fa-user-plus"></i></div>
+        <div class="action-card__body">
+            <div class="action-card__title">Создать аккаунт</div>
+            <div class="action-card__desc">Зарегистрируйся, чтобы получить персональные рекомендации</div>
+        </div>
+        <i class="fas fa-arrow-right action-card__arrow"></i>
+    </a>
+
+    <a href="{{ url_for('login') }}" class="action-card">
+        <div class="action-card__icon action-card__icon--muted"><i class="fas fa-sign-in-alt"></i></div>
+        <div class="action-card__body">
+            <div class="action-card__title">Войти</div>
+            <div class="action-card__desc">Уже есть аккаунт? Войди и продолжи</div>
+        </div>
+        <i class="fas fa-arrow-right action-card__arrow"></i>
+    </a>
+
+{% else %}
+    {% set profile = current_user.psychological_profile %}
+    {% set state = current_user.get_latest_state() %}
+
+    {% if not profile %}
+    <a href="{{ url_for('questionnaire') }}" class="action-card action-card--primary">
+        <div class="action-card__icon"><i class="fas fa-clipboard-list"></i></div>
+        <div class="action-card__body">
+            <div class="action-card__title">Заполнить анкету</div>
+            <div class="action-card__desc">21 вопрос — и система узнает тебя. Займёт 5 минут</div>
+        </div>
+        <i class="fas fa-arrow-right action-card__arrow"></i>
+    </a>
+    {% else %}
+    <a href="{{ url_for('ask_state') }}" class="action-card action-card--primary">
+        <div class="action-card__icon"><i class="fas fa-magic"></i></div>
+        <div class="action-card__body">
+            <div class="action-card__title">Получить рекомендацию</div>
+            <div class="action-card__desc">Укажи настроение и местоположение — подберём лучшее</div>
+        </div>
+        <i class="fas fa-arrow-right action-card__arrow"></i>
+    </a>
+    {% endif %}
+
+    <a href="{{ url_for('social') }}" class="action-card">
+        <div class="action-card__icon action-card__icon--purple"><i class="fas fa-users"></i></div>
+        <div class="action-card__body">
+            <div class="action-card__title">Социальное</div>
+            <div class="action-card__desc">Друзья, приглашения на активности, совместный отдых</div>
+        </div>
+        <i class="fas fa-arrow-right action-card__arrow"></i>
+    </a>
+
+    {% if profile %}
+    <a href="{{ url_for('profile') }}" class="action-card">
+        <div class="action-card__icon action-card__icon--muted"><i class="fas fa-brain"></i></div>
+        <div class="action-card__body">
+            <div class="action-card__title">Мой профиль</div>
+            <div class="action-card__desc">Психологические шкалы и история рекомендаций</div>
+        </div>
+        <i class="fas fa-arrow-right action-card__arrow"></i>
+    </a>
+    {% endif %}
+
+    {% if state %}
+    <a href="{{ url_for('recommendations') }}" class="action-card">
+        <div class="action-card__icon action-card__icon--amber"><i class="fas fa-map-marked-alt"></i></div>
+        <div class="action-card__body">
+            <div class="action-card__title">Последние рекомендации</div>
+            <div class="action-card__desc">{{ state.created_at.strftime('%d.%m в %H:%M') }} · {{ state.fatigue_level }}{% if state.mood %}, {{ state.mood }}{% endif %}</div>
+        </div>
+        <i class="fas fa-arrow-right action-card__arrow"></i>
+    </a>
+    {% endif %}
+
+{% endif %}
+</div>
+
+{% if not current_user or not current_user.psychological_profile %}
+<div class="how-card">
+    <div class="how-card__label">Как это работает</div>
+    <div class="how-steps">
+        {% for num, icon, title, desc in [
+            ('1', 'fa-clipboard-list', 'Анкета',        'Ответь на 21 вопрос о своих предпочтениях'),
+            ('2', 'fa-map-marker-alt', 'Состояние',     'Укажи настроение и где ты сейчас'),
+            ('3', 'fa-star',           'Рекомендации',  'Получи подборку мест и домашних активностей'),
+            ('4', 'fa-users',          'Друзья',        'Поделись активностью и запланируй встречу')
+        ] %}
+        <div class="how-step">
+            <div class="how-step__num">{{ num }}</div>
+            <div>
+                <div class="how-step__title"><i class="fas {{ icon }} text-primary"></i> {{ title }}</div>
+                <div class="how-step__desc">{{ desc }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

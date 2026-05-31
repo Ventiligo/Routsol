@@ -1,0 +1,37 @@
+/* Place type icon colors */
+.pi { display:inline-flex; align-items:center; justify-content:center; width:2.4rem; height:2.4rem; border-radius:10px; font-size:1.1rem; flex-shrink:0; }
+.pi-lg { width:3.2rem; height:3.2rem; font-size:1.5rem; border-radius:14px; }
+.pi-cafe      { background:rgba(245,158,11,0.15); color:#d97706; }
+.pi-restaurant{ background:rgba(239,68,68,0.12);  color:#dc2626; }
+.pi-park      { background:rgba(16,185,129,0.15); color:#059669; }
+.pi-cinema    { background:rgba(99,102,241,0.15); color:#6366f1; }
+.pi-gym       { background:rgba(239,68,68,0.12);  color:#dc2626; }
+.pi-museum    { background:rgba(139,92,246,0.15); color:#7c3aed; }
+.pi-bar       { background:rgba(245,158,11,0.12); color:#b45309; }
+.pi-shopping  { background:rgba(236,72,153,0.12); color:#db2777; }
+.pi-default   { background:var(--bg-input);       color:var(--text-muted); }
+
+/* Activity icon colors */
+.pi-meditation  { background:rgba(99,102,241,0.12); color:#6366f1; }
+.pi-book        { background:rgba(139,92,246,0.12); color:#7c3aed; }
+.pi-journaling  { background:rgba(16,185,129,0.12); color:#059669; }
+.pi-bath        { background:rgba(99,102,241,0.12); color:#6366f1; }
+.pi-drawing     { background:rgba(236,72,153,0.12); color:#db2777; }
+.pi-learning    { background:rgba(245,158,11,0.12); color:#d97706; }
+.pi-workout     { background:rgba(239,68,68,0.12);  color:#dc2626; }
+.pi-yoga        { background:rgba(16,185,129,0.12); color:#059669; }
+.pi-podcast     { background:rgba(139,92,246,0.12); color:#7c3aed; }
+.pi-photo       { background:rgba(99,102,241,0.12); color:#6366f1; }
+.pi-clean       { background:rgba(16,185,129,0.12); color:#059669; }
+.pi-walk        { background:rgba(245,158,11,0.12); color:#d97706; }
+.pi-movie       { background:rgba(99,102,241,0.12); color:#6366f1; }
+.pi-cooking     { background:rgba(239,68,68,0.12);  color:#dc2626; }
+.pi-games       { background:rgba(139,92,246,0.12); color:#7c3aed; }
+.pi-call        { background:rgba(16,185,129,0.12); color:#059669; }
+.pi-online      { background:rgba(99,102,241,0.12); color:#6366f1; }
+.pi-quiz        { background:rgba(245,158,11,0.12); color:#d97706; }
+.pi-spa         { background:rgba(236,72,153,0.12); color:#db2777; }
+.pi-board       { background:rgba(139,92,246,0.12); color:#7c3aed; }
+.pi-watch       { background:rgba(99,102,241,0.12); color:#6366f1; }
+.pi-craft       { background:rgba(236,72,153,0.12); color:#db2777; }
+.pi-music       { background:rgba(245,158,11,0.12); color:#d97706; }

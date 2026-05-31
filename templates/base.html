@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% block title %}Routsol Web{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/place-icons.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/fontawesome.min.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    {% block head_extra %}{% endblock %}
+    <script>
+    (function() {
+        const saved = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', saved);
+    })();
+    </script>
+</head>
+<body>
+    <header class="main-header">
+        <div class="container">
+            <div class="header-inner">
+                <a href="{{ url_for('index') }}" class="logo">
+                    <i class="fas fa-compass"></i>
+                    <span>Routsol <span class="logo-web">Web</span></span>
+                </a>
+                <nav class="main-nav">
+                    <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">
+                        <i class="fas fa-home"></i> Главная
+                    </a>
+                    <a href="{{ url_for('questionnaire') }}" class="nav-link {% if request.endpoint == 'questionnaire' %}active{% endif %}">
+                        <i class="fas fa-clipboard-list"></i> Анкета
+                    </a>
+                    <a href="{{ url_for('ask_state') }}" class="nav-link nav-link-cta {% if request.endpoint == 'ask_state' %}active{% endif %}">
+                        <i class="fas fa-magic"></i> Рекомендация
+                    </a>
+                    {% if current_user %}
+                    <a href="{{ url_for('social') }}" class="nav-link nav-badge {% if request.endpoint in ['social','social_users','social_profile'] %}active{% endif %}" id="social-nav-link">
+                        <i class="fas fa-users"></i> Социальное
+                        <span class="badge-count" id="notif-badge" style="display:none"></span>
+                    </a>
+                    <a href="{{ url_for('history') }}" class="nav-link {% if request.endpoint == 'history' %}active{% endif %}">
+                        <i class="fas fa-history"></i> История
+                    </a>
+                    <!-- Profile + logout grouped -->
+                    <div class="nav-user-group">
+                        <a href="{{ url_for('profile') }}" class="nav-user-link {% if request.endpoint == 'profile' %}active{% endif %}" title="{{ current_user.username }}">
+                            <i class="fas fa-circle-user"></i>
+                            <span class="nav-username-text">{{ current_user.username[:14] }}{% if current_user.username|length > 14 %}…{% endif %}</span>
+                        </a>
+                        <a href="{{ url_for('settings') }}" class="nav-logout-btn" title="Настройки" style="{% if request.endpoint == 'settings' %}color:var(--primary);{% endif %}">
+                            <i class="fas fa-gear"></i>
+                        </a>
+                        <a href="{{ url_for('logout') }}" class="nav-logout-btn" title="Выйти">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </a>
+                    </div>
+                    {% else %}
+                    <a href="{{ url_for('login') }}" class="nav-link {% if request.endpoint == 'login' %}active{% endif %}">
+                        <i class="fas fa-sign-in-alt"></i> Войти
+                    </a>
+                    <a href="{{ url_for('register') }}" class="nav-link nav-link-register {% if request.endpoint == 'register' %}active{% endif %}">
+                        <i class="fas fa-user-plus"></i> Регистрация
+                    </a>
+                    {% endif %}
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                            <div class="flash-message {{ category if category != 'message' else '' }}">
+                                <i class="fas {% if category == 'error' %}fa-exclamation-circle{% elif category == 'info' %}fa-info-circle{% else %}fa-check-circle{% endif %}"></i>
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <footer class="main-footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3><i class="fas fa-compass"></i> Routsol Web</h3>
+                    <p>Персональный сервис рекомендаций отдыха на основе психологии</p>
+                </div>
+                <div class="footer-section">
+                    <h3>Контакты</h3>
+                    <p>Email: eo-fedorova@mail.ru</p>
+                </div>
+            </div>
+            <div class="footer-bottom">2026 Routsol Web</div>
+        </div>
+    </footer>
+
+    <!-- Floating theme toggle -->
+    <button class="theme-fab" id="themeToggle" title="Сменить тему">
+        <i class="fas fa-moon" id="themeIcon"></i>
+    </button>
+
+    <script>
+    (function() {
+        const saved = localStorage.getItem('theme') || 'light';
+        updateIcon(saved);
+
+        document.getElementById('themeToggle').addEventListener('click', function() {
+            const current = document.documentElement.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+            updateIcon(next);
+        });
+
+        function updateIcon(theme) {
+            const icon = document.getElementById('themeIcon');
+            if (icon) icon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+        }
+    })();
+    {% if current_user %}
+    function loadNotifications() {
+        fetch('/api/social/notifications')
+            .then(r => r.json())
+            .then(data => {
+                const badge = document.getElementById('notif-badge');
+                if (badge) {
+                    if (data.total > 0) { badge.textContent = data.total; badge.style.display = 'flex'; }
+                    else { badge.style.display = 'none'; }
+                }
+            }).catch(() => {});
+    }
+    loadNotifications();
+    setInterval(loadNotifications, 30000);
+    {% endif %}
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
