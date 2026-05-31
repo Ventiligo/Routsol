@@ -11,7 +11,7 @@
 ```bash
 # 1. Клонировать репозиторий
 git clone <repository-url>
-cd Routsol-main
+cd Routsol
 
 # 2. Настроить переменные окружения
 copy .env.example .env
